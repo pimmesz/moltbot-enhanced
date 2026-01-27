@@ -58,7 +58,7 @@ docker run \
 ### Messaging Platform Credentials
 
 Channel credentials (WhatsApp session, bot tokens) are stored in:
-- `/config/.clawdbot/credentials/`
+- `/config/.moltbot/credentials/`
 
 Ensure:
 - `/config` volume has appropriate permissions (PUID/PGID)

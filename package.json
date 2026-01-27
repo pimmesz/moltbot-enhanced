@@ -5,11 +5,10 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/pimmesz/clawdbot-unraid"
+    "url": "https://github.com/pimmesz/moltbot-unraid"
   },
   "keywords": [
     "moltbot",
-    "clawdbot",
     "unraid",
     "docker",
     "ai-agent",

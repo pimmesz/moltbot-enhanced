@@ -1,9 +1,9 @@
 # Moltbot Unraid
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/pimmesz/moltbot-unraid)](https://hub.docker.com/r/pimmesz/moltbot-unraid)
-[![GitHub](https://img.shields.io/github/license/pimmesz/clawdbot-unraid)](https://github.com/pimmesz/clawdbot-unraid)
+[![GitHub](https://img.shields.io/github/license/pimmesz/moltbot-unraid)](https://github.com/pimmesz/moltbot-unraid)
 
-Moltbot (formerly Clawdbot) AI agent gateway for Unraid servers. Connect AI to messaging platforms like WhatsApp, Telegram, Discord, Slack, and more.
+Moltbot AI agent gateway for Unraid servers. Connect AI to messaging platforms like WhatsApp, Telegram, Discord, Slack, and more.
 
 ## Features
 
@@ -97,7 +97,7 @@ Configure at least one provider:
 | `/config` | Persistent configuration and state |
 
 The `/config` volume contains:
-- `.clawdbot/` - Moltbot configuration and credentials
+- `.moltbot/` - Moltbot configuration and credentials
 - `workspace/` - Agent workspace directory
 
 ## Ports
@@ -230,16 +230,16 @@ docker exec moltbot curl -sf http://127.0.0.1:18789/health
 Remove config and restart:
 ```bash
 docker stop moltbot
-rm -rf /mnt/cache/appdata/moltbot/.clawdbot
+rm -rf /mnt/cache/appdata/moltbot/.moltbot
 docker start moltbot
 ```
 
 ## Links
 
-- **Moltbot Documentation**: https://docs.clawd.bot
+- **Moltbot Documentation**: https://docs.molt.bot
 - **Docker Hub**: https://hub.docker.com/r/pimmesz/moltbot-unraid
-- **GitHub**: https://github.com/pimmesz/clawdbot-unraid
-- **Issues**: https://github.com/pimmesz/clawdbot-unraid/issues
+- **GitHub**: https://github.com/pimmesz/moltbot-unraid
+- **Issues**: https://github.com/pimmesz/moltbot-unraid/issues
 
 ## License
 

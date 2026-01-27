@@ -53,9 +53,9 @@ LABEL maintainer="pimmesz"
 LABEL org.opencontainers.image.title="Moltbot Unraid"
 LABEL org.opencontainers.image.description="Moltbot AI agent gateway for Unraid - connects AI to messaging platforms"
 LABEL org.opencontainers.image.authors="pimmesz"
-LABEL org.opencontainers.image.url="https://github.com/pimmesz/clawdbot-unraid"
-LABEL org.opencontainers.image.source="https://github.com/pimmesz/clawdbot-unraid"
-LABEL org.opencontainers.image.documentation="https://github.com/pimmesz/clawdbot-unraid/blob/main/README.md"
+LABEL org.opencontainers.image.url="https://github.com/pimmesz/moltbot-unraid"
+LABEL org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid"
+LABEL org.opencontainers.image.documentation="https://github.com/pimmesz/moltbot-unraid/blob/main/README.md"
 
 # Expose Gateway WebSocket port
 EXPOSE 18789

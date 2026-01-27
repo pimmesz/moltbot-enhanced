@@ -89,8 +89,8 @@ fi
 # ============================================================================
 
 # Moltbot state directories
-# We set HOME=/config so ~/.clawdbot becomes /config/.clawdbot
-MOLTBOT_STATE="/config/.clawdbot"
+# We set HOME=/config so ~/.moltbot becomes /config/.moltbot
+MOLTBOT_STATE="/config/.moltbot"
 MOLTBOT_WORKSPACE="/config/workspace"
 
 log "Initializing state directories..."
@@ -127,7 +127,7 @@ chown -R "$PUID:$PGID" /tmp/moltbot 2>/dev/null || true
 
 # These env vars ensure all state goes to /config
 export HOME=/config
-export CLAWDBOT_STATE_DIR="$MOLTBOT_STATE"
+export MOLTBOT_STATE_DIR="$MOLTBOT_STATE"
 export XDG_CONFIG_HOME=/config
 export XDG_DATA_HOME=/config
 export XDG_CACHE_HOME=/config/.cache
