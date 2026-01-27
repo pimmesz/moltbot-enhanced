@@ -104,6 +104,7 @@ if [ ! -f "$MOLTBOT_STATE/moltbot.json" ]; then
     cat > "$MOLTBOT_STATE/moltbot.json" <<EOF
 {
   "gateway": {
+    "mode": "local",
     "port": ${MOLTBOT_PORT:-18789},
     "bind": "${MOLTBOT_BIND:-lan}"
   },

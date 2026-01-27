@@ -234,6 +234,13 @@ rm -rf /mnt/cache/appdata/moltbot/.moltbot
 docker start moltbot
 ```
 
+### Gateway configuration error
+
+If you see `Gateway start blocked: set gateway.mode=local`, the default config will be created automatically on next restart:
+```bash
+docker restart moltbot
+```
+
 ## Links
 
 - **Moltbot Documentation**: https://docs.molt.bot
