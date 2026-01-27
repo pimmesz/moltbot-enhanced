@@ -1,0 +1,20 @@
+{
+  "name": "moltbot-unraid",
+  "version": "1.0.0",
+  "description": "Moltbot AI agent gateway for Unraid servers",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pimmesz/clawdbot-unraid"
+  },
+  "keywords": [
+    "moltbot",
+    "clawdbot",
+    "unraid",
+    "docker",
+    "ai-agent",
+    "gateway"
+  ],
+  "author": "pimmesz",
+  "license": "MIT"
+}

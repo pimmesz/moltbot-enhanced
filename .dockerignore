@@ -1,0 +1,36 @@
+# Git
+.git/
+.gitignore
+
+# GitHub
+.github/
+
+# Documentation
+README.md
+SECURITY.md
+LICENSE
+*.md
+
+# Docker
+docker-compose*.yml
+.dockerignore
+
+# Environment files (never include in image)
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Runtime/test directories
+config/
+logs/
+tmp/
