@@ -31,6 +31,7 @@ docker run -d \
   -e PUID=99 \
   -e PGID=100 \
   -e TZ=America/New_York \
+  -e MOLTBOT_TOKEN=your-secure-token \
   -e ANTHROPIC_API_KEY=your-key-here \
   pimmesz/moltbot-unraid:latest
 ```
@@ -38,7 +39,6 @@ docker run -d \
 ### Docker Compose
 
 ```yaml
-version: '3.8'
 services:
   moltbot:
     image: pimmesz/moltbot-unraid:latest
@@ -52,6 +52,8 @@ services:
       - PUID=99
       - PGID=100
       - TZ=America/New_York
+      # Required: Gateway authentication token
+      - MOLTBOT_TOKEN=your-secure-token
       # Required: At least one AI provider API key
       - ANTHROPIC_API_KEY=your-key-here
       # Optional: Additional providers
@@ -67,6 +69,7 @@ services:
 |----------|-------------|---------|
 | `PUID` | User ID for file permissions | `99` (Unraid default) |
 | `PGID` | Group ID for file permissions | `100` (Unraid default) |
+| `MOLTBOT_TOKEN` | Gateway authentication token | `dev-token` or secure random string |
 | `ANTHROPIC_API_KEY` | Anthropic API key (or another provider) | `sk-ant-...` |
 
 ### Optional
@@ -76,7 +79,6 @@ services:
 | `TZ` | Timezone | `UTC` |
 | `MOLTBOT_PORT` | Gateway port | `18789` |
 | `MOLTBOT_BIND` | Bind mode (`loopback`, `lan`, `auto`) | `lan` |
-| `MOLTBOT_TOKEN` | Gateway authentication token | (none) |
 | `MOLTBOT_CMD` | Override the startup command | (gateway) |
 
 ### AI Provider API Keys
@@ -118,6 +120,7 @@ Volume: /mnt/cache/appdata/moltbot -> /config
 Variable: PUID = 99
 Variable: PGID = 100
 Variable: TZ = America/New_York
+Variable: MOLTBOT_TOKEN = (your secure token)
 Variable: ANTHROPIC_API_KEY = (your key)
 ```
 

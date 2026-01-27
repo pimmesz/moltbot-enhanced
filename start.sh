@@ -176,6 +176,9 @@ if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
     # Add token if specified (for auth)
     if [ -n "$MOLTBOT_TOKEN" ]; then
         CMD="$CMD --token $MOLTBOT_TOKEN"
+    else
+        # If no token provided, allow unconfigured auth for easier setup
+        CMD="$CMD --allow-unconfigured"
     fi
     
     # Skip the "gateway" arg if it was passed

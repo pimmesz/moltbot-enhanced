@@ -6,10 +6,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      # For faster local development, build only for your platform
-      # Comment out for multi-platform builds (amd64 + arm64)
-      platforms:
-        - linux/amd64
     image: moltbot-unraid:local
     container_name: moltbot
     restart: unless-stopped
