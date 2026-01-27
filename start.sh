@@ -137,14 +137,44 @@ export XDG_RUNTIME_DIR=/tmp/moltbot
 export npm_config_cache=/config/.npm
 export npm_config_prefix=/config/.npm-global
 
+# Ensure PATH includes npm global bin directory
+# npm global packages are installed to /usr/local/bin in Node.js Alpine images
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
 # ============================================================================
 # Command Construction
 # ============================================================================
 
+# Verify moltbot is available
+if ! command -v moltbot >/dev/null 2>&1; then
+    log "ERROR: moltbot command not found in PATH"
+    log "PATH: $PATH"
+    log "Checking /usr/local/bin..."
+    if [ -f "/usr/local/bin/moltbot" ]; then
+        log "Found moltbot at /usr/local/bin/moltbot, but not in PATH"
+        log "Using full path to moltbot"
+        MOLTBOT_CMD="/usr/local/bin/moltbot"
+    else
+        log "moltbot not found in /usr/local/bin"
+        log "Checking npm global bin..."
+        NPM_BIN=$(npm config get prefix 2>/dev/null || echo "/usr/local")
+        log "npm prefix: $NPM_BIN"
+        if [ -f "$NPM_BIN/bin/moltbot" ]; then
+            MOLTBOT_CMD="$NPM_BIN/bin/moltbot"
+            log "Found moltbot at $MOLTBOT_CMD"
+        else
+            log "ERROR: moltbot not found. Please rebuild the Docker image."
+            exit 1
+        fi
+    fi
+else
+    MOLTBOT_CMD="moltbot"
+fi
+
 # Default command if none provided
 if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
     # Build gateway command with env-based options
-    CMD="moltbot gateway"
+    CMD="$MOLTBOT_CMD gateway"
     
     # Add port if specified
     if [ -n "$MOLTBOT_PORT" ]; then
@@ -176,7 +206,7 @@ elif [ "$1" = "shell" ]; then
     exec su-exec "$PUID:$PGID" /bin/sh
 else
     # Custom command (e.g., moltbot health, moltbot status)
-    CMD="moltbot $*"
+    CMD="$MOLTBOT_CMD $*"
 fi
 
 # Allow complete command override
