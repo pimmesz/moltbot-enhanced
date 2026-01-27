@@ -12,7 +12,6 @@ services:
     
     ports:
       - "18789:18789"  # Gateway
-      - "18790:18790"  # Onboarding UI
     
     volumes:
       # Persistent configuration

@@ -30,12 +30,6 @@ RUN pnpm build && \
     pnpm ui:build && \
     pnpm pack
 
-# Build onboarding UI in builder stage (has all build tools)
-COPY onboarding-ui /build-ui
-WORKDIR /build-ui
-RUN npm install --production=false && npm run build
-WORKDIR /build
-
 # Stage 2: Runtime image
 FROM node:24-slim
 
@@ -59,7 +53,6 @@ RUN apt-get update && \
     ca-certificates \
     passwd \
     procps \
-    net-tools \
     && \
     rm -rf /var/lib/apt/lists/*
 
@@ -82,18 +75,6 @@ WORKDIR /
 RUN mkdir -p /config /tmp/moltbot && \
     chmod 1777 /tmp
 
-# Copy pre-built onboarding UI from builder stage (includes node_modules with compiled native deps)
-COPY --from=builder /build-ui /app/onboarding-ui
-
-# Verify onboarding UI was built correctly
-RUN test -f /app/onboarding-ui/server/index.js || (echo "ERROR: server/index.js not found" && exit 1) && \
-    test -d /app/onboarding-ui/dist || (echo "ERROR: dist directory not found" && exit 1) && \
-    test -d /app/onboarding-ui/node_modules || (echo "ERROR: node_modules not found" && exit 1) && \
-    test -d /app/onboarding-ui/node_modules/express || (echo "ERROR: express not installed" && exit 1) && \
-    test -d /app/onboarding-ui/node_modules/ws || (echo "ERROR: ws not installed" && exit 1) && \
-    test -d /app/onboarding-ui/node_modules/node-pty || (echo "ERROR: node-pty not installed" && exit 1) && \
-    echo "✅ Onboarding UI verified: server, dist, and dependencies present"
-
 # Copy entrypoint and health check scripts
 COPY start.sh /start.sh
 COPY healthcheck.sh /healthcheck.sh
@@ -108,8 +89,8 @@ LABEL org.opencontainers.image.url="https://github.com/pimmesz/moltbot-unraid"
 LABEL org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid"
 LABEL org.opencontainers.image.documentation="https://github.com/pimmesz/moltbot-unraid/blob/main/README.md"
 
-# Expose Gateway WebSocket port and Onboarding UI port
-EXPOSE 18789 18790
+# Expose Gateway WebSocket port
+EXPOSE 18789
 
 # Health check using dedicated script
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

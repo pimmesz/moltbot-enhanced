@@ -22,14 +22,6 @@ APP_PID=""
 
 cleanup() {
     log "Received shutdown signal, cleaning up..."
-    
-    # Kill onboarding UI
-    if [ -n "$ONBOARDING_PID" ] && kill -0 "$ONBOARDING_PID" 2>/dev/null; then
-        log "Stopping Onboarding UI..."
-        kill -TERM "$ONBOARDING_PID" 2>/dev/null || true
-    fi
-    
-    # Kill main app
     if [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2>/dev/null; then
         log "Stopping Moltbot Gateway..."
         kill -TERM "$APP_PID" 2>/dev/null || true
@@ -344,60 +336,6 @@ if [ -n "${MOLTBOT_CMD:-}" ]; then
 fi
 
 # ============================================================================
-# Start Onboarding UI Server (background)
-# ============================================================================
-
-log "Starting Onboarding UI server on port ${ONBOARDING_PORT:-18790}..."
-
-# Check if onboarding-ui directory exists
-if [ ! -d "/app/onboarding-ui" ]; then
-    log "ERROR: /app/onboarding-ui directory not found!"
-    log "The onboarding UI was not built correctly. Check Dockerfile."
-else
-    # Check if server file exists
-    if [ ! -f "/app/onboarding-ui/server/index.js" ]; then
-        log "ERROR: /app/onboarding-ui/server/index.js not found!"
-        log "The onboarding UI server was not built correctly."
-    elif [ ! -d "/app/onboarding-ui/dist" ]; then
-        log "ERROR: /app/onboarding-ui/dist directory not found!"
-        log "The Vue.js frontend was not built. Check Dockerfile build step."
-    else
-        # Check if node_modules exists (needed for dependencies)
-        if [ ! -d "/app/onboarding-ui/node_modules" ]; then
-            log "WARNING: node_modules not found, server may fail to start"
-            log "Attempting to install dependencies..."
-            cd /app/onboarding-ui
-            gosu "$PUID:$PGID" npm install --production 2>&1 | head -20
-            cd /
-        fi
-        
-        # Start the server
-        cd /app/onboarding-ui
-        gosu "$PUID:$PGID" node server/index.js > /tmp/onboarding-ui.log 2>&1 &
-        ONBOARDING_PID=$!
-        cd /
-        
-        # Wait a moment and verify it started
-        sleep 2
-        if kill -0 "$ONBOARDING_PID" 2>/dev/null; then
-            # Check if server is actually listening
-            if netstat -tuln 2>/dev/null | grep -q ":${ONBOARDING_PORT:-18790}" || \
-               ss -tuln 2>/dev/null | grep -q ":${ONBOARDING_PORT:-18790}"; then
-                log "✅ Onboarding UI server started successfully (PID: $ONBOARDING_PID)"
-            else
-                log "⚠️  Onboarding UI process started but may not be listening on port ${ONBOARDING_PORT:-18790}"
-                log "Check logs: docker exec moltbot cat /tmp/onboarding-ui.log"
-            fi
-        else
-            log "❌ Onboarding UI server failed to start!"
-            log "Error log:"
-            cat /tmp/onboarding-ui.log 2>/dev/null | head -20 || log "No error log found"
-            log "Check if node_modules are installed: docker exec moltbot ls -la /app/onboarding-ui/node_modules"
-        fi
-    fi
-fi
-
-# ============================================================================
 # Launch Application
 # ============================================================================
 
@@ -412,28 +350,21 @@ APP_PID=$!
 sleep 3
 if kill -0 "$APP_PID" 2>/dev/null; then
     log "==================================================================="
-    log "✅ Moltbot Gateway Started Successfully!"
+    log "✅ Moltbot Gateway Started"
     log "==================================================================="
     log ""
-    log "🌐 Access the UIs:"
-    log "   Gateway Control Panel:  http://localhost:${MOLTBOT_PORT:-18789}"
-    log "   Onboarding Wizard:      http://localhost:${ONBOARDING_PORT:-18790}"
+    log "Gateway: http://localhost:${MOLTBOT_PORT:-18789}"
     log ""
-    log "🚀 Easy Setup (Web UI):"
-    log "   1. Open http://localhost:18790 in your browser"
-    log "   2. Click 'Full Onboarding' to start the setup wizard"
-    log "   3. Follow the interactive prompts in the terminal"
+    log "Setup:"
+    log "  docker exec -it moltbot moltbot onboard"
     log ""
-    log "🚀 Alternative (CLI):"
-    log "   docker exec -it moltbot moltbot onboard      # Interactive setup"
-    log "   docker exec moltbot moltbot doctor           # Health check"
+    log "Health:"
+    log "  docker exec moltbot moltbot doctor"
     log ""
-    log "📋 Useful commands:"
-    log "   docker exec moltbot moltbot status           # Channel status"
-    log "   docker exec -it moltbot moltbot channels login  # Add WhatsApp"
+    log "Status:"
+    log "  docker exec moltbot moltbot status"
     log ""
-    log "📁 Configuration: /config/.moltbot/"
-    log "📝 Logs: docker logs moltbot -f"
+    log "Config: /config/.moltbot/"
     log "==================================================================="
 fi
 
