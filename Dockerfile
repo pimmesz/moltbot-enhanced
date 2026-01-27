@@ -36,7 +36,10 @@ RUN apk add --no-cache \
 # Pin version if specified, otherwise use latest
 RUN npm install -g "moltbot@${MOLTBOT_VERSION}" --no-audit --no-fund && \
     npm cache clean --force && \
-    rm -rf /tmp/* /root/.npm
+    rm -rf /tmp/* /root/.npm && \
+    # Verify installation
+    which moltbot || (echo "ERROR: moltbot not found after installation" && exit 1) && \
+    moltbot --version || (echo "ERROR: moltbot command failed" && exit 1)
 
 # Create directories
 # /config is the single persistent volume mount point

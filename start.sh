@@ -146,29 +146,34 @@ export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 # ============================================================================
 
 # Verify moltbot is available
-if ! command -v moltbot >/dev/null 2>&1; then
-    log "ERROR: moltbot command not found in PATH"
-    log "PATH: $PATH"
-    log "Checking /usr/local/bin..."
-    if [ -f "/usr/local/bin/moltbot" ]; then
-        log "Found moltbot at /usr/local/bin/moltbot, but not in PATH"
-        log "Using full path to moltbot"
-        MOLTBOT_CMD="/usr/local/bin/moltbot"
-    else
-        log "moltbot not found in /usr/local/bin"
-        log "Checking npm global bin..."
-        NPM_BIN=$(npm config get prefix 2>/dev/null || echo "/usr/local")
-        log "npm prefix: $NPM_BIN"
-        if [ -f "$NPM_BIN/bin/moltbot" ]; then
-            MOLTBOT_CMD="$NPM_BIN/bin/moltbot"
-            log "Found moltbot at $MOLTBOT_CMD"
-        else
-            log "ERROR: moltbot not found. Please rebuild the Docker image."
-            exit 1
-        fi
+# Try multiple locations where npm might install global packages
+MOLTBOT_CMD=""
+for path in "/usr/local/bin/moltbot" "/usr/bin/moltbot" "$(npm bin -g 2>/dev/null)/moltbot" "$(npm prefix -g 2>/dev/null)/bin/moltbot"; do
+    if [ -n "$path" ] && [ -f "$path" ] 2>/dev/null; then
+        MOLTBOT_CMD="$path"
+        log "Found moltbot at: $MOLTBOT_CMD"
+        break
     fi
-else
-    MOLTBOT_CMD="moltbot"
+done
+
+# If still not found, try command lookup
+if [ -z "$MOLTBOT_CMD" ]; then
+    if command -v moltbot >/dev/null 2>&1; then
+        MOLTBOT_CMD="moltbot"
+        log "Found moltbot via PATH lookup"
+    else
+        log "ERROR: moltbot command not found"
+        log "PATH: $PATH"
+        log "Checking common locations..."
+        ls -la /usr/local/bin/moltbot 2>/dev/null || log "  /usr/local/bin/moltbot: not found"
+        ls -la /usr/bin/moltbot 2>/dev/null || log "  /usr/bin/moltbot: not found"
+        log "npm global bin: $(npm bin -g 2>/dev/null || echo 'failed')"
+        log "npm global prefix: $(npm prefix -g 2>/dev/null || echo 'failed')"
+        log ""
+        log "ERROR: moltbot was not installed correctly during Docker build."
+        log "Please rebuild the image: docker-compose build --no-cache"
+        exit 1
+    fi
 fi
 
 # Default command if none provided
