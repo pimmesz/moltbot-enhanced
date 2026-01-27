@@ -17,8 +17,9 @@ RUN apt-get update && \
 # Install pnpm
 RUN npm install -g pnpm@latest
 
-# Clone and build (with better caching)
-# Use shallow clone and separate dependency installation for better cache hits
+# Clone moltbot repository
+# Note: The npm package is incomplete, so we build from source.
+# TODO: Once a pre-built npm package is available, simplify to: npm install -g moltbot@latest
 RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
 
 # Install dependencies (this layer will be cached if package.json doesn't change)
@@ -26,11 +27,10 @@ RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
-# Build (this layer will be cached if source doesn't change)
-RUN pnpm build && pnpm ui:build
-
-# Package
-RUN pnpm pack
+# Build and package
+RUN pnpm build && \
+    pnpm ui:build && \
+    pnpm pack
 
 # Stage 2: Final image
 # Multi-platform base image (supports x86_64 and ARM64)
@@ -43,11 +43,6 @@ ENV PUID=1000
 ENV PGID=1000
 ENV TZ=UTC
 
-# Moltbot-specific environment
-# MOLTBOT_VERSION can be overridden at build time
-ARG MOLTBOT_VERSION=latest
-ENV MOLTBOT_VERSION=${MOLTBOT_VERSION}
-
 # Gateway configuration defaults
 ENV MOLTBOT_PORT=18789
 ENV MOLTBOT_BIND=lan
@@ -58,24 +53,23 @@ RUN apt-get update && \
     gosu \
     tzdata \
     bash \
+    git \
     curl \
     ca-certificates \
     passwd \
     && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy the built package from builder
+# Copy and install the built package from builder stage
 COPY --from=builder /build/moltbot-*.tgz /tmp/moltbot.tgz
 
-# Install the built package
 RUN npm install -g /tmp/moltbot.tgz && \
     rm -f /tmp/moltbot.tgz && \
-    # Verify installation
-    which moltbot || (echo "ERROR: moltbot not found after installation" && exit 1) && \
-    moltbot --version || (echo "ERROR: moltbot command failed" && exit 1) && \
-    # Clean up
     npm cache clean --force && \
-    rm -rf /root/.npm /root/.pnpm-store
+    rm -rf /root/.npm && \
+    # Verify installation succeeded
+    which moltbot || (echo "ERROR: moltbot binary not found" && exit 1) && \
+    moltbot --version || (echo "ERROR: moltbot command failed" && exit 1)
 
 WORKDIR /
 

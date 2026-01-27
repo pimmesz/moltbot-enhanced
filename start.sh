@@ -71,8 +71,8 @@ if ! getent passwd "$PUID" >/dev/null 2>&1; then
     useradd -u "$PUID" -g "$GROUP_NAME" -d /config -s /bin/bash -M moltbot 2>/dev/null || true
 fi
 
-# Get username for the UID
-USER_NAME=$(getent passwd "$PUID" | cut -d: -f1 || echo "moltbot")
+# Note: Username is available but not currently used
+# USER_NAME=$(getent passwd "$PUID" | cut -d: -f1 || echo "moltbot")
 
 # ============================================================================
 # Timezone Configuration
@@ -138,7 +138,7 @@ export npm_config_cache=/config/.npm
 export npm_config_prefix=/config/.npm-global
 
 # Ensure PATH includes npm global bin directory
-# npm global packages are installed to /usr/local/bin in Node.js Alpine images
+# npm global packages are installed to /usr/local/bin in Node.js images
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # ============================================================================
@@ -146,35 +146,16 @@ export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 # ============================================================================
 
 # Verify moltbot is available
-# Try multiple locations where npm might install global packages
-MOLTBOT_BIN=""
-for path in "/usr/local/bin/moltbot" "/usr/bin/moltbot" "$(npm bin -g 2>/dev/null)/moltbot" "$(npm prefix -g 2>/dev/null)/bin/moltbot"; do
-    if [ -n "$path" ] && [ -f "$path" ] 2>/dev/null; then
-        MOLTBOT_BIN="$path"
-        log "Found moltbot at: $MOLTBOT_BIN"
-        break
-    fi
-done
-
-# If still not found, try command lookup
-if [ -z "$MOLTBOT_BIN" ]; then
-    if command -v moltbot >/dev/null 2>&1; then
-        MOLTBOT_BIN="moltbot"
-        log "Found moltbot via PATH lookup"
-    else
-        log "ERROR: moltbot command not found"
-        log "PATH: $PATH"
-        log "Checking common locations..."
-        ls -la /usr/local/bin/moltbot 2>/dev/null || log "  /usr/local/bin/moltbot: not found"
-        ls -la /usr/bin/moltbot 2>/dev/null || log "  /usr/bin/moltbot: not found"
-        log "npm global bin: $(npm bin -g 2>/dev/null || echo 'failed')"
-        log "npm global prefix: $(npm prefix -g 2>/dev/null || echo 'failed')"
-        log ""
-        log "ERROR: moltbot was not installed correctly during Docker build."
-        log "Please rebuild the image: docker-compose build --no-cache"
-        exit 1
-    fi
+if ! command -v moltbot >/dev/null 2>&1; then
+    log "ERROR: moltbot command not found in PATH"
+    log "PATH: $PATH"
+    log "This suggests the Docker build failed or is incomplete."
+    log "Please rebuild: docker-compose build --no-cache"
+    exit 1
 fi
+
+MOLTBOT_BIN="moltbot"
+log "moltbot binary located at: $(which moltbot)"
 
 # Default command if none provided
 if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
@@ -214,8 +195,10 @@ else
     CMD="$MOLTBOT_BIN $*"
 fi
 
-# Allow complete command override via environment variable
+# Allow complete command override via MOLTBOT_CMD environment variable
+# This overrides the entire command, not just the binary path
 if [ -n "${MOLTBOT_CMD:-}" ]; then
+    log "Using command override from MOLTBOT_CMD environment variable"
     CMD="$MOLTBOT_CMD"
 fi
 
