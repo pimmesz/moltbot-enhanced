@@ -304,6 +304,16 @@ if [ -n "${MOLTBOT_CMD:-}" ]; then
 fi
 
 # ============================================================================
+# Start Onboarding UI Server (background)
+# ============================================================================
+
+log "Starting Onboarding UI server on port ${ONBOARDING_PORT:-18790}..."
+cd /app/onboarding-ui
+gosu "$PUID:$PGID" node server/index.js > /tmp/onboarding-ui.log 2>&1 &
+ONBOARDING_PID=$!
+cd /
+
+# ============================================================================
 # Launch Application
 # ============================================================================
 

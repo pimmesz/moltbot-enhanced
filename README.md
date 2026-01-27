@@ -207,9 +207,9 @@ docker run -d \
 
 ## 📖 Documentation
 
-- **[Setup Commands Reference](SETUP_COMMANDS.md)** - Complete guide to all setup commands
-- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Detailed deployment instructions
-- **[UX Improvements](UX_IMPROVEMENTS.md)** - User experience enhancements documentation
+- **[Onboarding Web UI](onboarding-ui/README.md)** - Technical documentation for the web UI
+- **[Build Optimization](BUILD_OPTIMIZATION.md)** - Performance tuning and build time explanations
+- **[Final Summary](FINAL_SUMMARY.md)** - Complete implementation overview
 
 ## Setup & Management Tools
 
