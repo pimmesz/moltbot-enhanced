@@ -30,6 +30,12 @@ RUN pnpm build && \
     pnpm ui:build && \
     pnpm pack
 
+# Build onboarding UI in builder stage (has all build tools)
+COPY onboarding-ui /build-ui
+WORKDIR /build-ui
+RUN npm install --production=false && npm run build
+WORKDIR /build
+
 # Stage 2: Runtime image
 FROM node:24-slim
 
@@ -75,13 +81,10 @@ WORKDIR /
 RUN mkdir -p /config /tmp/moltbot && \
     chmod 1777 /tmp
 
-# Copy and build onboarding UI
-COPY onboarding-ui /app/onboarding-ui
-WORKDIR /app/onboarding-ui
-RUN npm install --production=false && npm run build
+# Copy pre-built onboarding UI from builder stage
+COPY --from=builder /build-ui /app/onboarding-ui
 
 # Copy entrypoint and health check scripts
-WORKDIR /
 COPY start.sh /start.sh
 COPY healthcheck.sh /healthcheck.sh
 RUN chmod +x /start.sh /healthcheck.sh
