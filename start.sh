@@ -226,8 +226,8 @@ fi
 log "Executing: $CMD"
 
 # Use exec form for proper signal handling
-# su-exec replaces the shell with the target process
-exec su-exec "$PUID:$PGID" sh -c "$CMD" &
+# gosu replaces the shell with the target process (Debian alternative to su-exec)
+exec gosu "$PUID:$PGID" sh -c "$CMD" &
 APP_PID=$!
 
 # Wait for the application

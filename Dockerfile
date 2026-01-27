@@ -1,6 +1,7 @@
 # Multi-platform base image (supports x86_64 and ARM64)
-# Moltbot requires Node 22+
-FROM node:22-alpine
+# Moltbot requires Node 24+ (package requirement: node >= 24)
+# Using Debian-based image instead of Alpine for better native dependency support
+FROM node:24-slim
 
 # Set environment variables for Unraid compatibility
 ENV PUID=1000
@@ -17,29 +18,52 @@ ENV MOLTBOT_PORT=18789
 ENV MOLTBOT_BIND=lan
 
 # Install system dependencies
-# - shadow: usermod/groupmod for PUID/PGID
+# - gosu: lightweight privilege dropping (Debian alternative to su-exec)
 # - tzdata: timezone support
-# - su-exec: lightweight privilege dropping
 # - bash: shell compatibility
 # - git: some moltbot features may need git
 # - curl: health checks and downloads
-RUN apk add --no-cache \
-    shadow \
+# - python3, make, g++: needed for building native dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    gosu \
     tzdata \
-    su-exec \
     bash \
     git \
-    curl && \
-    rm -rf /var/cache/apk/*
+    curl \
+    ca-certificates \
+    python3 \
+    make \
+    g++ && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Moltbot globally
-# Pin version if specified, otherwise use latest
-RUN npm install -g "moltbot@${MOLTBOT_VERSION}" --no-audit --no-fund && \
-    npm cache clean --force && \
-    rm -rf /tmp/* /root/.npm && \
+# Install pnpm (moltbot requires pnpm >= 10)
+RUN npm install -g pnpm@latest
+
+# Install Moltbot from source
+# Note: The npm package (moltbot@0.1.0) is incomplete and doesn't include the built binary.
+# We need to build from source until a proper npm package is published.
+# Docs recommend: npm install -g moltbot@latest (but current npm package is incomplete)
+WORKDIR /tmp
+RUN git clone --depth 1 https://github.com/moltbot/moltbot.git && \
+    cd moltbot && \
+    pnpm install --frozen-lockfile && \
+    pnpm build && \
+    pnpm ui:build && \
+    pnpm pack && \
+    npm install -g ./moltbot-*.tgz && \
+    cd / && \
+    rm -rf /tmp/moltbot && \
     # Verify installation
     which moltbot || (echo "ERROR: moltbot not found after installation" && exit 1) && \
-    moltbot --version || (echo "ERROR: moltbot command failed" && exit 1)
+    moltbot --version || (echo "ERROR: moltbot command failed" && exit 1) && \
+    # Clean up build dependencies and cache
+    apt-get remove -y python3 make g++ && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /tmp/* /root/.npm /root/.pnpm-store /var/lib/apt/lists/*
+
+WORKDIR /
 
 # Create directories
 # /config is the single persistent volume mount point
