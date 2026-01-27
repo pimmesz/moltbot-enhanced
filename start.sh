@@ -150,7 +150,10 @@ if [ ! -f "$MOLTBOT_STATE/moltbot.json" ]; then
   "gateway": {
     "mode": "local",
     "port": ${MOLTBOT_PORT:-18789},
-    "bind": "${MOLTBOT_BIND:-lan}"
+    "bind": "${MOLTBOT_BIND:-lan}",
+    "controlUi": {
+      "allowInsecureAuth": true
+    }
   },
   "agents": {
     "defaults": {
@@ -170,7 +173,10 @@ else
   "gateway": {
     "mode": "local",
     "port": ${MOLTBOT_PORT:-18789},
-    "bind": "${MOLTBOT_BIND:-lan}"
+    "bind": "${MOLTBOT_BIND:-lan}",
+    "controlUi": {
+      "allowInsecureAuth": true
+    }
   },
   "agents": {
     "defaults": {
@@ -180,6 +186,40 @@ else
 }
 EOF
         log "Old config backed up with .backup suffix"
+    else
+        # Patch existing config to allow insecure HTTP access (if not already set)
+        # This fixes the "control ui requires HTTPS or localhost" error
+        if ! python3 -c "import json; c=json.load(open('$MOLTBOT_STATE/moltbot.json')); exit(0 if c.get('gateway', {}).get('controlUi', {}).get('allowInsecureAuth') else 1)" 2>/dev/null; then
+            log "Adding allowInsecureAuth to gateway.controlUi for HTTP access..."
+            python3 <<PYTHON
+import json
+import sys
+
+try:
+    with open('$MOLTBOT_STATE/moltbot.json', 'r') as f:
+        config = json.load(f)
+    
+    # Ensure gateway.controlUi structure exists
+    if 'gateway' not in config:
+        config['gateway'] = {}
+    if 'controlUi' not in config['gateway']:
+        config['gateway']['controlUi'] = {}
+    
+    # Set allowInsecureAuth if not already set
+    if not config['gateway']['controlUi'].get('allowInsecureAuth'):
+        config['gateway']['controlUi']['allowInsecureAuth'] = True
+        
+        with open('$MOLTBOT_STATE/moltbot.json', 'w') as f:
+            json.dump(config, f, indent=2)
+        
+        print("✅ Updated config to allow insecure HTTP access")
+    else:
+        print("✅ Config already has allowInsecureAuth set")
+except Exception as e:
+    print(f"⚠️  Could not update config: {e}", file=sys.stderr)
+    sys.exit(0)  # Don't fail startup if patch fails
+PYTHON
+        fi
     fi
 fi
 
