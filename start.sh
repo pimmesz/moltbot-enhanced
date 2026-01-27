@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Moltbot Unraid Entrypoint
 # Handles PUID/PGID, state initialization, and privilege dropping
@@ -39,7 +39,7 @@ cleanup() {
     exit 0
 }
 
-trap cleanup SIGTERM SIGINT
+trap cleanup TERM INT
 
 # ============================================================================
 # Validate Environment
@@ -53,13 +53,13 @@ fi
 log "Starting Moltbot with PUID=$PUID, PGID=$PGID"
 
 # ============================================================================
-# User/Group Setup (Alpine Linux)
+# User/Group Setup (Debian Linux)
 # ============================================================================
 
 # Create group if it doesn't exist
 if ! getent group "$PGID" >/dev/null 2>&1; then
     log "Creating group with GID $PGID"
-    addgroup -g "$PGID" moltbot 2>/dev/null || true
+    groupadd -g "$PGID" moltbot 2>/dev/null || true
 fi
 
 # Get group name for the GID
@@ -68,7 +68,7 @@ GROUP_NAME=$(getent group "$PGID" | cut -d: -f1 || echo "moltbot")
 # Create user if it doesn't exist
 if ! getent passwd "$PUID" >/dev/null 2>&1; then
     log "Creating user with UID $PUID"
-    adduser -u "$PUID" -G "$GROUP_NAME" -D -h /config -s /bin/sh moltbot 2>/dev/null || true
+    useradd -u "$PUID" -g "$GROUP_NAME" -d /config -s /bin/bash -M moltbot 2>/dev/null || true
 fi
 
 # Get username for the UID
@@ -147,19 +147,19 @@ export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # Verify moltbot is available
 # Try multiple locations where npm might install global packages
-MOLTBOT_CMD=""
+MOLTBOT_BIN=""
 for path in "/usr/local/bin/moltbot" "/usr/bin/moltbot" "$(npm bin -g 2>/dev/null)/moltbot" "$(npm prefix -g 2>/dev/null)/bin/moltbot"; do
     if [ -n "$path" ] && [ -f "$path" ] 2>/dev/null; then
-        MOLTBOT_CMD="$path"
-        log "Found moltbot at: $MOLTBOT_CMD"
+        MOLTBOT_BIN="$path"
+        log "Found moltbot at: $MOLTBOT_BIN"
         break
     fi
 done
 
 # If still not found, try command lookup
-if [ -z "$MOLTBOT_CMD" ]; then
+if [ -z "$MOLTBOT_BIN" ]; then
     if command -v moltbot >/dev/null 2>&1; then
-        MOLTBOT_CMD="moltbot"
+        MOLTBOT_BIN="moltbot"
         log "Found moltbot via PATH lookup"
     else
         log "ERROR: moltbot command not found"
@@ -179,7 +179,7 @@ fi
 # Default command if none provided
 if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
     # Build gateway command with env-based options
-    CMD="$MOLTBOT_CMD gateway"
+    CMD="$MOLTBOT_BIN gateway"
     
     # Add port if specified
     if [ -n "$MOLTBOT_PORT" ]; then
@@ -208,14 +208,14 @@ if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
 elif [ "$1" = "shell" ]; then
     # Debug mode: drop into shell
     log "Starting interactive shell..."
-    exec su-exec "$PUID:$PGID" /bin/sh
+    exec gosu "$PUID:$PGID" /bin/bash
 else
     # Custom command (e.g., moltbot health, moltbot status)
-    CMD="$MOLTBOT_CMD $*"
+    CMD="$MOLTBOT_BIN $*"
 fi
 
-# Allow complete command override
-if [ -n "$MOLTBOT_CMD" ]; then
+# Allow complete command override via environment variable
+if [ -n "${MOLTBOT_CMD:-}" ]; then
     CMD="$MOLTBOT_CMD"
 fi
 
@@ -225,12 +225,12 @@ fi
 
 log "Executing: $CMD"
 
-# Use exec form for proper signal handling
-# gosu replaces the shell with the target process (Debian alternative to su-exec)
-exec gosu "$PUID:$PGID" sh -c "$CMD" &
+# Use gosu to run as non-root user
+# Note: We can't use exec here because we need to wait for the process
+gosu "$PUID:$PGID" sh -c "$CMD" &
 APP_PID=$!
 
-# Wait for the application
+# Wait for the application and forward signals
 wait $APP_PID
 EXIT_CODE=$?
 
