@@ -1,7 +1,36 @@
-# Moltbot Unraid Docker Image
-# Multi-platform base image (supports x86_64 and ARM64)
-# Moltbot requires Node 24+ (package requirement: node >= 24)
-# Using Debian-based image instead of Alpine for better native dependency support
+# Multi-stage build for better caching
+# Stage 1: Build moltbot from source
+FROM node:24-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git \
+    python3 \
+    make \
+    g++ \
+    ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install pnpm
+RUN npm install -g pnpm@latest
+
+# Clone and build moltbot
+# Note: npm package (moltbot@latest) is incomplete (no binary), must build from source
+RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
+
+# Install dependencies with cache mount for faster rebuilds
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# Build and package
+RUN pnpm build && \
+    pnpm ui:build && \
+    pnpm pack
+
+# Stage 2: Runtime image
 FROM node:24-slim
 
 # Set environment variables for Unraid compatibility
@@ -23,11 +52,15 @@ RUN apt-get update && \
     curl \
     ca-certificates \
     passwd \
+    procps \
     && \
     rm -rf /var/lib/apt/lists/*
 
-# Install moltbot from npm (pre-built package)
-RUN npm install -g moltbot@latest && \
+# Copy and install the built package from builder stage
+COPY --from=builder /build/moltbot-*.tgz /tmp/moltbot.tgz
+
+RUN npm install -g /tmp/moltbot.tgz && \
+    rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
     rm -rf /root/.npm && \
     # Verify installation succeeded
