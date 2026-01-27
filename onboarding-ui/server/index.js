@@ -209,8 +209,18 @@ process.on('SIGTERM', () => {
 });
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`[Server] Moltbot Onboarding UI listening on port ${PORT}`);
+// Bind to 0.0.0.0 to allow access from network (not just localhost)
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Server] Moltbot Onboarding UI listening on 0.0.0.0:${PORT}`);
   console.log(`[Server] WebSocket server ready`);
-  console.log(`[Server] Open http://localhost:${PORT} to access the UI`);
+  console.log(`[Server] Accessible at http://localhost:${PORT} or http://<server-ip>:${PORT}`);
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error(`[Server] Error starting server:`, error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`[Server] Port ${PORT} is already in use`);
+  }
+  process.exit(1);
 });

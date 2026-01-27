@@ -308,10 +308,54 @@ fi
 # ============================================================================
 
 log "Starting Onboarding UI server on port ${ONBOARDING_PORT:-18790}..."
-cd /app/onboarding-ui
-gosu "$PUID:$PGID" node server/index.js > /tmp/onboarding-ui.log 2>&1 &
-ONBOARDING_PID=$!
-cd /
+
+# Check if onboarding-ui directory exists
+if [ ! -d "/app/onboarding-ui" ]; then
+    log "ERROR: /app/onboarding-ui directory not found!"
+    log "The onboarding UI was not built correctly. Check Dockerfile."
+else
+    # Check if server file exists
+    if [ ! -f "/app/onboarding-ui/server/index.js" ]; then
+        log "ERROR: /app/onboarding-ui/server/index.js not found!"
+        log "The onboarding UI server was not built correctly."
+    elif [ ! -d "/app/onboarding-ui/dist" ]; then
+        log "ERROR: /app/onboarding-ui/dist directory not found!"
+        log "The Vue.js frontend was not built. Check Dockerfile build step."
+    else
+        # Check if node_modules exists (needed for dependencies)
+        if [ ! -d "/app/onboarding-ui/node_modules" ]; then
+            log "WARNING: node_modules not found, server may fail to start"
+            log "Attempting to install dependencies..."
+            cd /app/onboarding-ui
+            gosu "$PUID:$PGID" npm install --production 2>&1 | head -20
+            cd /
+        fi
+        
+        # Start the server
+        cd /app/onboarding-ui
+        gosu "$PUID:$PGID" node server/index.js > /tmp/onboarding-ui.log 2>&1 &
+        ONBOARDING_PID=$!
+        cd /
+        
+        # Wait a moment and verify it started
+        sleep 2
+        if kill -0 "$ONBOARDING_PID" 2>/dev/null; then
+            # Check if server is actually listening
+            if netstat -tuln 2>/dev/null | grep -q ":${ONBOARDING_PORT:-18790}" || \
+               ss -tuln 2>/dev/null | grep -q ":${ONBOARDING_PORT:-18790}"; then
+                log "✅ Onboarding UI server started successfully (PID: $ONBOARDING_PID)"
+            else
+                log "⚠️  Onboarding UI process started but may not be listening on port ${ONBOARDING_PORT:-18790}"
+                log "Check logs: docker exec moltbot cat /tmp/onboarding-ui.log"
+            fi
+        else
+            log "❌ Onboarding UI server failed to start!"
+            log "Error log:"
+            cat /tmp/onboarding-ui.log 2>/dev/null | head -20 || log "No error log found"
+            log "Check if node_modules are installed: docker exec moltbot ls -la /app/onboarding-ui/node_modules"
+        fi
+    fi
+fi
 
 # ============================================================================
 # Launch Application

@@ -59,6 +59,7 @@ RUN apt-get update && \
     ca-certificates \
     passwd \
     procps \
+    net-tools \
     && \
     rm -rf /var/lib/apt/lists/*
 
@@ -81,8 +82,17 @@ WORKDIR /
 RUN mkdir -p /config /tmp/moltbot && \
     chmod 1777 /tmp
 
-# Copy pre-built onboarding UI from builder stage
+# Copy pre-built onboarding UI from builder stage (includes node_modules with compiled native deps)
 COPY --from=builder /build-ui /app/onboarding-ui
+
+# Verify onboarding UI was built correctly
+RUN test -f /app/onboarding-ui/server/index.js || (echo "ERROR: server/index.js not found" && exit 1) && \
+    test -d /app/onboarding-ui/dist || (echo "ERROR: dist directory not found" && exit 1) && \
+    test -d /app/onboarding-ui/node_modules || (echo "ERROR: node_modules not found" && exit 1) && \
+    test -d /app/onboarding-ui/node_modules/express || (echo "ERROR: express not installed" && exit 1) && \
+    test -d /app/onboarding-ui/node_modules/ws || (echo "ERROR: ws not installed" && exit 1) && \
+    test -d /app/onboarding-ui/node_modules/node-pty || (echo "ERROR: node-pty not installed" && exit 1) && \
+    echo "✅ Onboarding UI verified: server, dist, and dependencies present"
 
 # Copy entrypoint and health check scripts
 COPY start.sh /start.sh
