@@ -22,7 +22,16 @@ APP_PID=""
 
 cleanup() {
     log "Received shutdown signal, cleaning up..."
+    
+    # Kill onboarding UI
+    if [ -n "$ONBOARDING_PID" ] && kill -0 "$ONBOARDING_PID" 2>/dev/null; then
+        log "Stopping Onboarding UI..."
+        kill -TERM "$ONBOARDING_PID" 2>/dev/null || true
+    fi
+    
+    # Kill main app
     if [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2>/dev/null; then
+        log "Stopping Moltbot Gateway..."
         kill -TERM "$APP_PID" 2>/dev/null || true
         # Wait with timeout
         timeout=30
@@ -46,11 +55,46 @@ trap cleanup TERM INT
 # ============================================================================
 
 if [ -z "$PUID" ] || [ -z "$PGID" ]; then
-    log "ERROR: PUID and PGID must be set"
+    log "==================================================================="
+    log "❌ ERROR: PUID and PGID environment variables are required"
+    log "==================================================================="
+    log ""
+    log "These variables control file permissions in the container."
+    log ""
+    log "For Unraid: Use PUID=99 and PGID=100 (default)"
+    log "For local: Use your user ID and group ID"
+    log ""
+    log "To find your IDs, run:"
+    log "  id -u  # Your PUID"
+    log "  id -g  # Your PGID"
+    log ""
+    log "Then set in docker-compose.yml or .env file:"
+    log "  PUID=1000"
+    log "  PGID=1000"
+    log "==================================================================="
     exit 1
 fi
 
 log "Starting Moltbot with PUID=$PUID, PGID=$PGID"
+
+# ============================================================================
+# AI Provider Validation
+# ============================================================================
+
+# Check if at least one AI provider API key is configured
+if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$OPENAI_API_KEY" ] && \
+   [ -z "$OPENROUTER_API_KEY" ] && [ -z "$GEMINI_API_KEY" ]; then
+    log "WARNING: No AI provider API key detected!"
+    log "The gateway will start, but AI features will not work."
+    log "Please set at least one of these environment variables:"
+    log "  - ANTHROPIC_API_KEY (recommended)"
+    log "  - OPENAI_API_KEY"
+    log "  - OPENROUTER_API_KEY"
+    log "  - GEMINI_API_KEY"
+    log ""
+    log "Waiting 10 seconds before starting (Ctrl+C to cancel)..."
+    sleep 10
+fi
 
 # ============================================================================
 # User/Group Setup (Debian Linux)
@@ -115,6 +159,28 @@ if [ ! -f "$MOLTBOT_STATE/moltbot.json" ]; then
   }
 }
 EOF
+else
+    # Validate existing config is valid JSON
+    if ! python3 -c "import json; json.load(open('$MOLTBOT_STATE/moltbot.json'))" 2>/dev/null; then
+        log "WARNING: moltbot.json appears to be invalid JSON"
+        log "Backing up and recreating default configuration..."
+        mv "$MOLTBOT_STATE/moltbot.json" "$MOLTBOT_STATE/moltbot.json.backup.$(date +%s)"
+        cat > "$MOLTBOT_STATE/moltbot.json" <<EOF
+{
+  "gateway": {
+    "mode": "local",
+    "port": ${MOLTBOT_PORT:-18789},
+    "bind": "${MOLTBOT_BIND:-lan}"
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/config/workspace"
+    }
+  }
+}
+EOF
+        log "Old config backed up with .backup suffix"
+    fi
 fi
 
 # Set ownership
@@ -148,10 +214,24 @@ export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # Verify moltbot is available
 if ! command -v moltbot >/dev/null 2>&1; then
-    log "ERROR: moltbot command not found in PATH"
-    log "PATH: $PATH"
-    log "This suggests the Docker build failed or is incomplete."
-    log "Please rebuild: docker-compose build --no-cache"
+    log "==================================================================="
+    log "❌ ERROR: moltbot binary not found"
+    log "==================================================================="
+    log ""
+    log "This indicates the Docker image was not built correctly."
+    log ""
+    log "To fix this:"
+    log "  1. Remove the container:"
+    log "     docker-compose down"
+    log ""
+    log "  2. Rebuild from scratch:"
+    log "     docker-compose build --no-cache"
+    log ""
+    log "  3. Start again:"
+    log "     docker-compose up -d"
+    log ""
+    log "If the problem persists, check build logs for errors."
+    log "==================================================================="
     exit 1
 fi
 
@@ -233,6 +313,35 @@ log "Executing: $CMD"
 # Note: We can't use exec here because we need to wait for the process
 gosu "$PUID:$PGID" sh -c "$CMD" &
 APP_PID=$!
+
+# Wait a moment for startup, then show welcome message
+sleep 3
+if kill -0 "$APP_PID" 2>/dev/null; then
+    log "==================================================================="
+    log "✅ Moltbot Gateway Started Successfully!"
+    log "==================================================================="
+    log ""
+    log "🌐 Access the UIs:"
+    log "   Gateway Control Panel:  http://localhost:${MOLTBOT_PORT:-18789}"
+    log "   Onboarding Wizard:      http://localhost:${ONBOARDING_PORT:-18790}"
+    log ""
+    log "🚀 Easy Setup (Web UI):"
+    log "   1. Open http://localhost:18790 in your browser"
+    log "   2. Click 'Full Onboarding' to start the setup wizard"
+    log "   3. Follow the interactive prompts in the terminal"
+    log ""
+    log "🚀 Alternative (CLI):"
+    log "   docker exec -it moltbot moltbot onboard      # Interactive setup"
+    log "   docker exec moltbot moltbot doctor           # Health check"
+    log ""
+    log "📋 Useful commands:"
+    log "   docker exec moltbot moltbot status           # Channel status"
+    log "   docker exec -it moltbot moltbot channels login  # Add WhatsApp"
+    log ""
+    log "📁 Configuration: /config/.moltbot/"
+    log "📝 Logs: docker logs moltbot -f"
+    log "==================================================================="
+fi
 
 # Wait for the application and forward signals
 wait $APP_PID

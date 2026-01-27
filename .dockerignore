@@ -34,3 +34,8 @@ Thumbs.db
 config/
 logs/
 tmp/
+
+# Onboarding UI - exclude dev files
+onboarding-ui/node_modules/
+onboarding-ui/dist/
+onboarding-ui/.DS_Store

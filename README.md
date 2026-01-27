@@ -9,6 +9,7 @@ Moltbot AI agent gateway for Unraid servers. Connect AI to messaging platforms l
 
 - **Multi-Platform Messaging**: Connect to WhatsApp, Telegram, Discord, Slack, Signal, and more
 - **AI Agent Gateway**: WebSocket-based gateway for AI agent communication
+- **Web-Based Onboarding**: Interactive web UI for easy setup (no CLI required!)
 - **Unraid Compatible**: Follows Unraid conventions (PUID/PGID, non-root user, graceful shutdown)
 - **Persistent State**: All configuration stored in `/config` volume
 - **Health Monitoring**: Built-in health check endpoint
@@ -20,6 +21,26 @@ Moltbot AI agent gateway for Unraid servers. Connect AI to messaging platforms l
 - API keys for your chosen AI providers (Anthropic, OpenAI, etc.)
 
 ## Quick Start
+
+### Easy Setup (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/pimmesz/moltbot-unraid.git
+cd moltbot-unraid
+
+# Quick setup for local development (auto-detects PUID/PGID, timezone)
+bash scripts/quick-setup.sh
+
+# Start the container
+docker-compose up -d
+
+# Run moltbot's built-in onboarding wizard (interactive)
+docker exec -it moltbot moltbot onboard
+
+# Or use the built-in doctor for health checks
+docker exec moltbot moltbot doctor
+```
 
 ### Docker Run
 
@@ -184,9 +205,79 @@ docker run -d \
 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=100m --cap-drop ALL --cap-add CHOWN --cap-add SETGID --cap-add SETUID --security-opt no-new-privileges:true
 ```
 
+## 📖 Documentation
+
+- **[Setup Commands Reference](SETUP_COMMANDS.md)** - Complete guide to all setup commands
+- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Detailed deployment instructions
+- **[UX Improvements](UX_IMPROVEMENTS.md)** - User experience enhancements documentation
+
+## Setup & Management Tools
+
+### Host Setup Script (Docker Configuration)
+```bash
+bash scripts/quick-setup.sh
+```
+- Auto-detects PUID/PGID and timezone
+- Creates `.env` file with Docker settings
+- Prompts for API key
+- Prepares environment for container
+
+### Built-in Moltbot Tools (Inside Container)
+
+After starting the container, use moltbot's **built-in commands**:
+
+```bash
+# Interactive onboarding wizard (credentials, channels, workspace)
+docker exec -it moltbot moltbot onboard
+
+# Interactive configuration for credentials and devices
+docker exec -it moltbot moltbot configure
+
+# Health checks and automatic fixes
+docker exec moltbot moltbot doctor
+
+# Open the Control UI dashboard
+docker exec moltbot moltbot dashboard
+
+# Check gateway and channel status
+docker exec moltbot moltbot status
+
+# Check gateway health
+docker exec moltbot moltbot health
+```
+
+### Quick Status Check
+```bash
+bash scripts/check-status.sh
+```
+- Shows container health and basic info
+- Displays auto-generated token
+- Quick diagnostic overview
+
 ## CLI Reference
 
-Common commands you can run inside the container:
+### Most Useful Built-in Commands
+
+```bash
+# Setup & Configuration
+docker exec -it moltbot moltbot onboard          # Interactive setup wizard
+docker exec -it moltbot moltbot configure        # Configure credentials
+docker exec moltbot moltbot doctor               # Health checks & fixes
+docker exec moltbot moltbot doctor --repair      # Auto-fix issues
+
+# Monitoring
+docker exec moltbot moltbot status               # Channel health
+docker exec moltbot moltbot health               # Gateway health
+docker exec moltbot moltbot dashboard            # Open Control UI
+
+# Channel Management  
+docker exec -it moltbot moltbot channels login   # Add WhatsApp/channels
+docker exec moltbot moltbot channels status      # Channel status
+```
+
+### All Available Commands
+
+Run inside the container:
 
 ```bash
 # Check gateway health

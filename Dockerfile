@@ -75,7 +75,13 @@ WORKDIR /
 RUN mkdir -p /config /tmp/moltbot && \
     chmod 1777 /tmp
 
+# Copy and build onboarding UI
+COPY onboarding-ui /app/onboarding-ui
+WORKDIR /app/onboarding-ui
+RUN npm install --production=false && npm run build
+
 # Copy entrypoint and health check scripts
+WORKDIR /
 COPY start.sh /start.sh
 COPY healthcheck.sh /healthcheck.sh
 RUN chmod +x /start.sh /healthcheck.sh
@@ -89,8 +95,8 @@ LABEL org.opencontainers.image.url="https://github.com/pimmesz/moltbot-unraid"
 LABEL org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid"
 LABEL org.opencontainers.image.documentation="https://github.com/pimmesz/moltbot-unraid/blob/main/README.md"
 
-# Expose Gateway WebSocket port
-EXPOSE 18789
+# Expose Gateway WebSocket port and Onboarding UI port
+EXPOSE 18789 18790
 
 # Health check using dedicated script
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
