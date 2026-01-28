@@ -70,6 +70,31 @@ docker run -d \
 | `OPENROUTER_API_KEY` | OpenRouter API key | - |
 | `GEMINI_API_KEY` | Google Gemini API key | - |
 
+## Web UI Access
+
+After starting the container, check the logs for the tokenized URL:
+
+```bash
+docker logs moltbot
+```
+
+Look for a line like:
+
+```
+Web UI (copy and paste this URL):
+  http://192.168.2.96:18789/?token=88d1aa4c3122b0d81616e3d641ffa307be4f41ff984bed17c53a1ae3e8626980
+```
+
+Copy the entire URL (including the `?token=...` part) and paste it into your browser.
+
+**Why is a token needed?**
+- The gateway requires authentication to prevent unauthorized access
+- A secure token is auto-generated on first startup
+- The token is saved in `/config/.moltbot/.moltbot_token`
+- Without the token in the URL, you'll see "unauthorized: gateway token mismatch"
+
+**Alternative:** Paste the token manually in the Control UI settings if you access `http://YOUR_IP:18789` without the token parameter.
+
 ## Configuration
 
 ### Interactive Setup

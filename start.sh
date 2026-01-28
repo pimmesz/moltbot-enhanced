@@ -384,20 +384,32 @@ APP_PID=$!
 # Wait a moment for startup, then show welcome message
 sleep 3
 if kill -0 "$APP_PID" 2>/dev/null; then
+    # Get actual bind address for UI URL
+    BIND_ADDR="${MOLTBOT_BIND:-lan}"
+    if [ "$BIND_ADDR" = "loopback" ]; then
+        UI_HOST="localhost"
+    else
+        # Try to detect the actual IP address
+        UI_HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
+        if [ -z "$UI_HOST" ]; then
+            UI_HOST="localhost"
+        fi
+    fi
+    UI_PORT="${MOLTBOT_PORT:-18789}"
+    
     log "==================================================================="
     log "✅ Moltbot Gateway Started"
     log "==================================================================="
     log ""
-    log "Gateway: http://localhost:${MOLTBOT_PORT:-18789}"
+    log "Web UI (copy and paste this URL):"
+    log "  http://${UI_HOST}:${UI_PORT}/?token=${FINAL_TOKEN}"
     log ""
-    log "Setup:"
-    log "  docker exec -it moltbot moltbot onboard"
+    log "Gateway Token: ${FINAL_TOKEN}"
     log ""
-    log "Health:"
-    log "  docker exec moltbot moltbot doctor"
-    log ""
-    log "Status:"
-    log "  docker exec moltbot moltbot status"
+    log "CLI Commands:"
+    log "  Setup:  docker exec -it moltbot moltbot onboard"
+    log "  Health: docker exec moltbot moltbot doctor"
+    log "  Status: docker exec moltbot moltbot status"
     log ""
     log "Config: /config/.moltbot/"
     log "==================================================================="
