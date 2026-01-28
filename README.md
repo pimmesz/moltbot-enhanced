@@ -87,7 +87,8 @@ docker run -d \
 | `PGID` | Group ID | `1000` |
 | `TZ` | Timezone | `UTC` |
 | `MOLTBOT_PORT` | Gateway port | `18789` |
-| `MOLTBOT_BIND` | Bind mode | `lan` |
+| `MOLTBOT_BIND` | Bind mode (`lan`, `loopback`, or `wan`) | `lan` |
+| `MOLTBOT_HOST` | Host IP for Web UI URL (auto-detected if not set) | Auto-detect |
 | `ANTHROPIC_API_KEY` | Anthropic API key | - |
 | `OPENAI_API_KEY` | OpenAI API key | - |
 | `OPENROUTER_API_KEY` | OpenRouter API key | - |
@@ -113,7 +114,7 @@ Copy the entire URL (including the `?token=...` part) and paste it into your bro
 **Why is a token needed?**
 - The gateway requires authentication to prevent unauthorized access
 - A secure token is auto-generated on first startup
-- The token is saved in `/config/.moltbot/.moltbot_token`
+- The token is saved in `/config/.clawdbot/.moltbot_token`
 - Without the token in the URL, you'll see "unauthorized: gateway token mismatch"
 
 **Alternative:** Paste the token manually in the Control UI settings if you access `http://YOUR_IP:18789` without the token parameter.
@@ -187,7 +188,7 @@ docker exec moltbot moltbot doctor
 
 ```bash
 docker stop moltbot
-rm -rf /mnt/cache/appdata/moltbot/.moltbot
+rm -rf /mnt/cache/appdata/moltbot/.clawdbot
 docker start moltbot
 ```
 

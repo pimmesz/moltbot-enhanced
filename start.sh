@@ -142,6 +142,8 @@ OLD_STATE="/config/.moltbot"
 if [ -d "$OLD_STATE" ] && [ ! -L "$OLD_STATE" ] && [ "$OLD_STATE" != "$MOLTBOT_STATE" ]; then
     log "Migrating config from $OLD_STATE to $MOLTBOT_STATE..."
     cp -rn "$OLD_STATE"/* "$MOLTBOT_STATE/" 2>/dev/null || true
+    # Set ownership immediately after copying
+    chown -R "$PUID:$PGID" "$MOLTBOT_STATE" 2>/dev/null || true
     mv "$OLD_STATE" "$OLD_STATE.migrated.$(date +%s)"
     log "Old config backed up to $OLD_STATE.migrated.*"
 fi
@@ -158,6 +160,8 @@ elif [ -d /root/.clawdbot ] && [ ! -L /root/.clawdbot ]; then
     # If it's a real directory (not a symlink), move contents and create symlink
     log "Moving existing /root/.clawdbot contents to $MOLTBOT_STATE"
     cp -rn /root/.clawdbot/* "$MOLTBOT_STATE/" 2>/dev/null || true
+    # Set ownership immediately after copying
+    chown -R "$PUID:$PGID" "$MOLTBOT_STATE" 2>/dev/null || true
     rm -rf /root/.clawdbot
     ln -sf "$MOLTBOT_STATE" /root/.clawdbot
     log "Created symlink: /root/.clawdbot -> $MOLTBOT_STATE"
@@ -315,10 +319,21 @@ PYTHON
     fi
 fi
 
-# Set ownership
+# Set ownership - this must happen AFTER all config file creation/migration
 log "Setting ownership of /config to $PUID:$PGID"
 chown -R "$PUID:$PGID" /config
 chown -R "$PUID:$PGID" /tmp/moltbot 2>/dev/null || true
+
+# Verify critical files are readable
+if [ ! -r "$MOLTBOT_STATE/moltbot.json" ]; then
+    log "WARNING: Config file is not readable, attempting to fix permissions..."
+    chmod 644 "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
+    chown "$PUID:$PGID" "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
+fi
+
+# Ensure directories have correct permissions
+chmod 755 "$MOLTBOT_STATE" 2>/dev/null || true
+chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
 
 # ============================================================================
 # Environment Setup for Non-Root User
@@ -369,6 +384,23 @@ fi
 
 MOLTBOT_BIN="moltbot"
 log "moltbot binary located at: $(which moltbot)"
+
+# Verify config file exists and will be readable by the non-root user
+if [ ! -f "$MOLTBOT_STATE/moltbot.json" ]; then
+    log "WARNING: Config file does not exist at $MOLTBOT_STATE/moltbot.json"
+elif ! gosu "$PUID:$PGID" test -r "$MOLTBOT_STATE/moltbot.json" 2>/dev/null; then
+    log "WARNING: Config file exists but is not readable by UID $PUID"
+    log "Attempting to fix permissions..."
+    chmod 644 "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
+    chown "$PUID:$PGID" "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
+    # Verify again
+    if gosu "$PUID:$PGID" test -r "$MOLTBOT_STATE/moltbot.json" 2>/dev/null; then
+        log "✅ Permissions fixed"
+    else
+        log "❌ ERROR: Unable to fix config file permissions"
+        log "Please check: ls -la $MOLTBOT_STATE/moltbot.json"
+    fi
+fi
 
 # Default command if none provided
 if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
@@ -434,10 +466,36 @@ if kill -0 "$APP_PID" 2>/dev/null; then
     if [ "$BIND_ADDR" = "loopback" ]; then
         UI_HOST="localhost"
     else
-        # Try to detect the actual IP address
-        UI_HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
-        if [ -z "$UI_HOST" ]; then
-            UI_HOST="localhost"
+        # Try to detect the host's actual IP address (not Docker's internal IP)
+        # Priority order:
+        # 1. MOLTBOT_HOST env var (user can override)
+        # 2. Get default gateway IP (usually the host machine in bridge mode)
+        # 3. Look for non-Docker IPs in common private ranges
+        # 4. Fall back to first available IP
+        
+        if [ -n "$MOLTBOT_HOST" ]; then
+            UI_HOST="$MOLTBOT_HOST"
+        else
+            # Try to get the host's IP by looking at the default gateway
+            # In Docker bridge mode, the gateway is typically the host machine
+            DEFAULT_GATEWAY=$(ip route | grep default | awk '{print $3}' 2>/dev/null | head -n1)
+            
+            if [ -n "$DEFAULT_GATEWAY" ] && [ "$DEFAULT_GATEWAY" != "0.0.0.0" ]; then
+                # Use the gateway IP (which is the host in bridge networking)
+                UI_HOST="$DEFAULT_GATEWAY"
+            else
+                # Fall back: find first non-Docker private IP
+                # Exclude Docker networks: 172.17.0.0/16, 172.18.0.0/16, etc.
+                UI_HOST=$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^(192\.168\.|10\.)' | head -n1)
+                
+                if [ -z "$UI_HOST" ]; then
+                    # Last resort: use first IP or localhost
+                    UI_HOST=$(hostname -I 2>/dev/null | awk '{print $1}')
+                    if [ -z "$UI_HOST" ]; then
+                        UI_HOST="localhost"
+                    fi
+                fi
+            fi
         fi
     fi
     UI_PORT="${MOLTBOT_PORT:-18789}"
