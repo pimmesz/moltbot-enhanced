@@ -331,9 +331,21 @@ if [ ! -r "$MOLTBOT_STATE/moltbot.json" ]; then
     chown "$PUID:$PGID" "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
 fi
 
-# Ensure directories have correct permissions
+# Ensure directories have correct permissions (755 = rwxr-xr-x)
+# Owner (PUID) needs full read/write/execute access
 chmod 755 "$MOLTBOT_STATE" 2>/dev/null || true
 chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
+
+# Ensure the non-root user can create subdirectories
+# The PUID user must own these directories to create files/subdirs
+if [ "$(stat -c %u "$MOLTBOT_STATE" 2>/dev/null)" != "$PUID" ]; then
+    log "WARNING: $MOLTBOT_STATE not owned by UID $PUID, fixing..."
+    chown -R "$PUID:$PGID" "$MOLTBOT_STATE"
+fi
+if [ "$(stat -c %u "$MOLTBOT_WORKSPACE" 2>/dev/null)" != "$PUID" ]; then
+    log "WARNING: $MOLTBOT_WORKSPACE not owned by UID $PUID, fixing..."
+    chown -R "$PUID:$PGID" "$MOLTBOT_WORKSPACE"
+fi
 
 # ============================================================================
 # Environment Setup for Non-Root User
