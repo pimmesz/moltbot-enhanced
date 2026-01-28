@@ -54,6 +54,7 @@ RUN apt-get update && \
     ca-certificates \
     passwd \
     procps \
+    chromium \
     && \
     rm -rf /var/lib/apt/lists/*
 
