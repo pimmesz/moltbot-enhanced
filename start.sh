@@ -289,10 +289,12 @@ if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
     TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
     if [ -n "$MOLTBOT_TOKEN" ]; then
         # User provided token via environment
+        export MOLTBOT_TOKEN
         CMD="$CMD --token $MOLTBOT_TOKEN"
     elif [ -f "$TOKEN_FILE" ]; then
         # Use previously generated token
         GENERATED_TOKEN=$(cat "$TOKEN_FILE")
+        export MOLTBOT_TOKEN="$GENERATED_TOKEN"
         log "Using auto-generated token from previous run"
         CMD="$CMD --token $GENERATED_TOKEN"
     else
@@ -301,6 +303,7 @@ if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
         echo "$GENERATED_TOKEN" > "$TOKEN_FILE"
         chmod 600 "$TOKEN_FILE"
         chown "$PUID:$PGID" "$TOKEN_FILE"
+        export MOLTBOT_TOKEN="$GENERATED_TOKEN"
         log "==================================================================="
         log "AUTO-GENERATED GATEWAY TOKEN (save this for API access):"
         log "$GENERATED_TOKEN"
