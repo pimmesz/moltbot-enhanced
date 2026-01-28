@@ -34,8 +34,9 @@ RUN pnpm build && \
 FROM node:24-slim
 
 # Set environment variables for Unraid compatibility
-ENV PUID=1000
-ENV PGID=1000
+# Unraid uses 99:100 (nobody:users) as default for Docker containers
+ENV PUID=99
+ENV PGID=100
 ENV TZ=UTC
 
 # Gateway configuration defaults
