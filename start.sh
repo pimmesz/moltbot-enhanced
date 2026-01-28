@@ -134,7 +134,39 @@ log "Initializing state directories..."
 # Create required directories
 mkdir -p "$MOLTBOT_STATE" "$MOLTBOT_WORKSPACE" /tmp/moltbot
 
-# Initialize default config if not exists
+# ============================================================================
+# Token Handling - BEFORE config creation
+# ============================================================================
+# We need the token first so we can put it in the config file
+TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
+if [ -n "$MOLTBOT_TOKEN" ]; then
+    # User provided token via environment
+    FINAL_TOKEN="$MOLTBOT_TOKEN"
+    log "Using token from MOLTBOT_TOKEN environment variable"
+elif [ -f "$TOKEN_FILE" ]; then
+    # Use previously generated token
+    FINAL_TOKEN=$(cat "$TOKEN_FILE")
+    log "Using auto-generated token from previous run"
+else
+    # Generate new token on first run
+    FINAL_TOKEN=$(openssl rand -hex 32)
+    echo "$FINAL_TOKEN" > "$TOKEN_FILE"
+    chmod 600 "$TOKEN_FILE"
+    chown "$PUID:$PGID" "$TOKEN_FILE"
+    log "==================================================================="
+    log "AUTO-GENERATED GATEWAY TOKEN (save this for API access):"
+    log "$FINAL_TOKEN"
+    log "==================================================================="
+    log "Token saved to: $TOKEN_FILE"
+fi
+
+# Export for child processes
+export MOLTBOT_TOKEN="$FINAL_TOKEN"
+
+# ============================================================================
+# Config File Setup
+# ============================================================================
+# Initialize default config if not exists - WITH TOKEN INCLUDED
 if [ ! -f "$MOLTBOT_STATE/moltbot.json" ]; then
     log "Creating default Moltbot configuration..."
     cat > "$MOLTBOT_STATE/moltbot.json" <<EOF
@@ -143,6 +175,10 @@ if [ ! -f "$MOLTBOT_STATE/moltbot.json" ]; then
     "mode": "local",
     "port": ${MOLTBOT_PORT:-18789},
     "bind": "${MOLTBOT_BIND:-lan}",
+    "auth": {
+      "mode": "token",
+      "token": "$FINAL_TOKEN"
+    },
     "controlUi": {
       "allowInsecureAuth": true
     }
@@ -166,6 +202,10 @@ else
     "mode": "local",
     "port": ${MOLTBOT_PORT:-18789},
     "bind": "${MOLTBOT_BIND:-lan}",
+    "auth": {
+      "mode": "token",
+      "token": "$FINAL_TOKEN"
+    },
     "controlUi": {
       "allowInsecureAuth": true
     }
@@ -179,11 +219,9 @@ else
 EOF
         log "Old config backed up with .backup suffix"
     else
-        # Patch existing config to allow insecure HTTP access (if not already set)
-        # This fixes the "control ui requires HTTPS or localhost" error
-        if ! python3 -c "import json; c=json.load(open('$MOLTBOT_STATE/moltbot.json')); exit(0 if c.get('gateway', {}).get('controlUi', {}).get('allowInsecureAuth') else 1)" 2>/dev/null; then
-            log "Adding allowInsecureAuth to gateway.controlUi for HTTP access..."
-            python3 <<PYTHON
+        # Patch existing config to ensure all required settings are present
+        log "Ensuring config has required settings..."
+        python3 <<PYTHON
 import json
 import sys
 
@@ -191,27 +229,46 @@ try:
     with open('$MOLTBOT_STATE/moltbot.json', 'r') as f:
         config = json.load(f)
     
-    # Ensure gateway.controlUi structure exists
+    modified = False
+    
+    # Ensure gateway structure exists
     if 'gateway' not in config:
         config['gateway'] = {}
+        modified = True
+    
+    # Ensure auth structure exists with token
+    if 'auth' not in config['gateway']:
+        config['gateway']['auth'] = {}
+        modified = True
+    
+    # Set auth mode and token
+    if config['gateway']['auth'].get('token') != '$FINAL_TOKEN':
+        config['gateway']['auth']['mode'] = 'token'
+        config['gateway']['auth']['token'] = '$FINAL_TOKEN'
+        modified = True
+        print("✅ Updated auth token in config")
+    
+    # Ensure controlUi structure exists
     if 'controlUi' not in config['gateway']:
         config['gateway']['controlUi'] = {}
+        modified = True
     
-    # Set allowInsecureAuth if not already set
+    # Set allowInsecureAuth
     if not config['gateway']['controlUi'].get('allowInsecureAuth'):
         config['gateway']['controlUi']['allowInsecureAuth'] = True
-        
+        modified = True
+        print("✅ Enabled insecure HTTP access in config")
+    
+    if modified:
         with open('$MOLTBOT_STATE/moltbot.json', 'w') as f:
             json.dump(config, f, indent=2)
-        
-        print("✅ Updated config to allow insecure HTTP access")
     else:
-        print("✅ Config already has allowInsecureAuth set")
+        print("✅ Config already up to date")
+        
 except Exception as e:
     print(f"⚠️  Could not update config: {e}", file=sys.stderr)
     sys.exit(0)  # Don't fail startup if patch fails
 PYTHON
-        fi
     fi
 fi
 
@@ -285,61 +342,8 @@ if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
         CMD="$CMD --bind $MOLTBOT_BIND"
     fi
     
-    # Handle token authentication
-    TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
-    if [ -n "$MOLTBOT_TOKEN" ]; then
-        # User provided token via environment
-        FINAL_TOKEN="$MOLTBOT_TOKEN"
-    elif [ -f "$TOKEN_FILE" ]; then
-        # Use previously generated token
-        FINAL_TOKEN=$(cat "$TOKEN_FILE")
-        log "Using auto-generated token from previous run"
-    else
-        # Generate new token on first run
-        FINAL_TOKEN=$(openssl rand -hex 32)
-        echo "$FINAL_TOKEN" > "$TOKEN_FILE"
-        chmod 600 "$TOKEN_FILE"
-        chown "$PUID:$PGID" "$TOKEN_FILE"
-        log "==================================================================="
-        log "AUTO-GENERATED GATEWAY TOKEN (save this for API access):"
-        log "$FINAL_TOKEN"
-        log "==================================================================="
-        log "Token saved to: $TOKEN_FILE"
-        log "To use a custom token, set MOLTBOT_TOKEN environment variable"
-    fi
-    
-    # Export token for all child processes
-    export MOLTBOT_TOKEN="$FINAL_TOKEN"
-    
-    # Add token to config file so moltbot-probe and CLI can read it
-    if [ -f "$MOLTBOT_STATE/moltbot.json" ]; then
-        python3 <<PYTHON
-import json
-import sys
-
-try:
-    with open('$MOLTBOT_STATE/moltbot.json', 'r') as f:
-        config = json.load(f)
-    
-    # Ensure gateway structure exists
-    if 'gateway' not in config:
-        config['gateway'] = {}
-    if 'auth' not in config['gateway']:
-        config['gateway']['auth'] = {}
-    
-    # Set token in config
-    config['gateway']['auth']['token'] = '$FINAL_TOKEN'
-    
-    with open('$MOLTBOT_STATE/moltbot.json', 'w') as f:
-        json.dump(config, f, indent=2)
-except Exception as e:
-    print(f"⚠️  Could not update config with token: {e}", file=sys.stderr)
-    sys.exit(0)  # Don't fail startup
-PYTHON
-    fi
-    
-    # Use token in gateway command
-    CMD="$CMD --token $FINAL_TOKEN"
+    # Token is already set in config file and exported as MOLTBOT_TOKEN
+    # moltbot reads token from config, no need for --token flag
     
     # Skip the "gateway" arg if it was passed
     if [ "$1" = "gateway" ]; then
