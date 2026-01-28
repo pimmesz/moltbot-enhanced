@@ -19,9 +19,17 @@ log() {
 # ============================================================================
 
 APP_PID=""
+WATCHDOG_PID=""
 
 cleanup() {
     log "Received shutdown signal, cleaning up..."
+    
+    # Stop watchdog first
+    if [ -n "$WATCHDOG_PID" ] && kill -0 "$WATCHDOG_PID" 2>/dev/null; then
+        kill -TERM "$WATCHDOG_PID" 2>/dev/null || true
+    fi
+    
+    # Stop main application
     if [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2>/dev/null; then
         log "Stopping Moltbot Gateway..."
         kill -TERM "$APP_PID" 2>/dev/null || true
@@ -135,7 +143,10 @@ log "State directory: $MOLTBOT_STATE"
 log "Workspace: $MOLTBOT_WORKSPACE"
 
 # Create required directories
+# Moltbot needs these subdirectories for storing agent state and sessions
 mkdir -p "$MOLTBOT_STATE" "$MOLTBOT_WORKSPACE" /tmp/moltbot
+mkdir -p "$MOLTBOT_STATE/agents/main/sessions"
+mkdir -p "$MOLTBOT_STATE/agents/main/state"
 
 # Migration: if old .moltbot directory exists, migrate to .clawdbot
 OLD_STATE="/config/.moltbot"
@@ -331,12 +342,13 @@ if [ ! -r "$MOLTBOT_STATE/moltbot.json" ]; then
     chown "$PUID:$PGID" "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
 fi
 
-# Ensure directories have correct permissions (755 = rwxr-xr-x)
-# Owner (PUID) needs full read/write/execute access
-chmod 755 "$MOLTBOT_STATE" 2>/dev/null || true
-chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
+# Ensure all directories have correct permissions (755 = rwxr-xr-x)
+# Owner (PUID) needs full read/write/execute access to create files/subdirs
+log "Setting directory permissions..."
+find "$MOLTBOT_STATE" -type d -exec chmod 755 {} \; 2>/dev/null || true
+find "$MOLTBOT_WORKSPACE" -type d -exec chmod 755 {} \; 2>/dev/null || true
 
-# Ensure the non-root user can create subdirectories
+# Ensure the non-root user owns all directories
 # The PUID user must own these directories to create files/subdirs
 if [ "$(stat -c %u "$MOLTBOT_STATE" 2>/dev/null)" != "$PUID" ]; then
     log "WARNING: $MOLTBOT_STATE not owned by UID $PUID, fixing..."
@@ -469,6 +481,25 @@ log "Executing: $CMD"
 # passwd entry, which may not be /config for existing users like 'nobody'
 gosu "$PUID:$PGID" env HOME=/config sh -c "$CMD" &
 APP_PID=$!
+
+# Start a background watchdog to fix permissions if moltbot overwrites files as root
+# This can happen when config is updated via CLI commands or the control UI
+(
+    sleep 10  # Wait for initial startup
+    while kill -0 "$APP_PID" 2>/dev/null; do
+        # Fix ownership of config file if it gets changed to root
+        if [ -f "$MOLTBOT_STATE/moltbot.json" ]; then
+            OWNER=$(stat -c %u "$MOLTBOT_STATE/moltbot.json" 2>/dev/null)
+            if [ "$OWNER" = "0" ] || [ "$OWNER" != "$PUID" ]; then
+                log "WARNING: Config file ownership changed to UID $OWNER, fixing to $PUID:$PGID"
+                chown "$PUID:$PGID" "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
+                chmod 644 "$MOLTBOT_STATE/moltbot.json" 2>/dev/null || true
+            fi
+        fi
+        sleep 30  # Check every 30 seconds
+    done
+) &
+WATCHDOG_PID=$!
 
 # Wait a moment for startup, then show welcome message
 sleep 3
