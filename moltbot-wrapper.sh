@@ -1,15 +1,47 @@
 #!/bin/bash
-# Wrapper for moltbot CLI commands
-# Ensures all commands run as the correct non-root user
+# Wrapper for moltbot binary
+# Ensures proper environment and provides graceful shutdown
 
-# Get PUID/PGID from environment or use defaults
-PUID=${PUID:-99}
-PGID=${PGID:-100}
+set -e
 
-# If already running as the target user, just execute
-if [ "$(id -u)" = "$PUID" ]; then
-    exec /usr/local/bin/moltbot-real "$@"
-fi
+# Trap signals for graceful shutdown
+cleanup() {
+    echo "[moltbot-wrapper] Received shutdown signal, stopping gracefully..."
+    kill -TERM "$MOLTBOT_PID" 2>/dev/null || true
+    wait "$MOLTBOT_PID" 2>/dev/null || true
+    echo "[moltbot-wrapper] Shutdown complete"
+    exit 0
+}
 
-# Otherwise, use gosu to run as the correct user
-exec gosu "$PUID:$PGID" env HOME=/config /usr/local/bin/moltbot-real "$@"
+trap cleanup SIGTERM SIGINT SIGHUP
+
+# Source environment if available
+[ -f /etc/environment ] && source /etc/environment
+[ -f /config/.env ] && source /config/.env
+
+# Export moltbot-specific vars with defaults
+export MOLTBOT_CONFIG_DIR="${MOLTBOT_CONFIG_DIR:-/config/moltbot}"
+export MOLTBOT_PORT="${MOLTBOT_PORT:-18789}"
+export MOLTBOT_BIND="${MOLTBOT_BIND:-lan}"
+export HOME="${HOME:-/config}"
+export NODE_ENV="${NODE_ENV:-production}"
+
+# Chromium/Puppeteer settings for headless browser
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+export CHROME_PATH=/usr/bin/chromium
+export CHROMIUM_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
+
+# Ensure config directory exists
+mkdir -p "$MOLTBOT_CONFIG_DIR"
+
+# Run the real moltbot binary in background and wait
+/usr/local/bin/moltbot-real "$@" &
+MOLTBOT_PID=$!
+
+# Wait for moltbot to exit
+wait "$MOLTBOT_PID"
+EXIT_CODE=$?
+
+echo "[moltbot-wrapper] Moltbot exited with code $EXIT_CODE"
+exit $EXIT_CODE

@@ -14,6 +14,50 @@ Moltbot AI agent gateway for Unraid servers. Connect AI to messaging platforms l
 - Persistent state in `/config` volume
 - Health monitoring and auto-recovery
 
+### 🤖 AI Butler Capabilities (Enhanced)
+
+This container includes additional tools for smart home automation:
+
+| Category | Tools | Use Cases |
+|----------|-------|-----------|
+| **🌐 Browser** | Chromium, Playwright, Selenium | Sonos web app control, smart home dashboards |
+| **🎵 Audio** | FFmpeg, SoX, codecs | Audio processing, format conversion, streaming |
+| **📊 Data** | Pandas, NumPy, jq/yq | Analytics, data processing, JSON/YAML |
+| **🔌 IoT** | MQTT, Zeroconf | Smart home protocols, device discovery |
+| **💾 Database** | SQLite, PostgreSQL | Data persistence, logging, analytics |
+| **🔧 Network** | SSH, curl, DNS tools | Connectivity, debugging, automation |
+
+#### Example: Sonos Control via Browser
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto("http://192.168.1.100:1400")
+    # Automate Sonos web interface
+```
+
+#### Example: Audio Processing
+
+```bash
+# Convert audio format
+ffmpeg -i input.flac -codec:a libmp3lame output.mp3
+
+# Analyze audio
+sox input.wav -n stats
+```
+
+#### Example: Data Analytics
+
+```python
+import pandas as pd
+# Process server metrics, logs, etc.
+df = pd.read_csv('/config/metrics.csv')
+print(df.describe())
+```
+
 ## Quick Start
 
 ```bash
