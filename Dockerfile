@@ -18,6 +18,7 @@ RUN apt-get update && \
 RUN npm install -g pnpm@latest
 
 # Clone and build moltbot
+# Note: npm package (moltbot@latest) is incomplete (no binary), must build from source
 RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
 
 # Install dependencies with cache mount for faster rebuilds
@@ -33,6 +34,7 @@ RUN pnpm build && \
 FROM node:24-slim
 
 # Set environment variables for Unraid compatibility
+# Unraid uses 99:100 (nobody:users) as default for Docker containers
 ENV PUID=99
 ENV PGID=100
 ENV TZ=UTC
@@ -41,75 +43,19 @@ ENV TZ=UTC
 ENV MOLTBOT_PORT=18789
 ENV MOLTBOT_BIND=lan
 
-# Install essential runtime dependencies
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     gosu \
     tzdata \
+    bash \
     git \
     curl \
     ca-certificates \
+    passwd \
     procps \
-    python3 \
-    python3-pip \
-    python3-venv \
     && \
     rm -rf /var/lib/apt/lists/*
-
-# Install audio/video and additional tools in separate layer
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    ffmpeg \
-    sox \
-    sqlite3 \
-    postgresql-client \
-    jq \
-    wget \
-    unzip \
-    && \
-    rm -rf /var/lib/apt/lists/*
-
-# === Install Balanced Python Packages ===
-RUN pip3 install --no-cache-dir \
-    # Web & automation
-    requests \
-    beautifulsoup4 \
-    selenium \
-    playwright \
-    \
-    # Data processing
-    pandas \
-    numpy \
-    \
-    # Utilities
-    pillow \
-    pyyaml \
-    python-dotenv \
-    \
-    # Database
-    sqlalchemy \
-    psycopg2-binary \
-    redis \
-    \
-    # IoT
-    paho-mqtt \
-    zeroconf \
-    \
-    # Time
-    pytz \
-    python-dateutil \
-    \
-    # Security
-    cryptography
-
-# === Install Playwright browsers for fallback automation ===
-RUN python3 -m playwright install chromium --with-deps
-
-# === Install Node.js utilities ===
-
-RUN npm install -g \
-    pm2 \
-    http-server
 
 # Copy and install the built package from builder stage
 COPY --from=builder /build/moltbot-*.tgz /tmp/moltbot.tgz
@@ -118,12 +64,15 @@ RUN npm install -g /tmp/moltbot.tgz && \
     rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
     rm -rf /root/.npm && \
+    # Verify installation succeeded
     which moltbot || (echo "ERROR: moltbot binary not found" && exit 1) && \
     moltbot --version || (echo "ERROR: moltbot command failed" && exit 1)
 
 WORKDIR /
 
 # Create directories
+# /config is the single persistent volume mount point
+# /tmp/moltbot is for transient logs (will use tmpfs)
 RUN mkdir -p /config /tmp/moltbot && \
     chmod 1777 /tmp
 
@@ -133,24 +82,32 @@ COPY healthcheck.sh /healthcheck.sh
 COPY moltbot-wrapper.sh /usr/local/bin/moltbot-wrapper
 RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper
 
-# Replace moltbot binary with wrapper
+# Replace moltbot binary with wrapper to ensure correct user for all commands
 RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
 
-# Metadata labels
+# Metadata labels for Docker Hub
 LABEL maintainer="pimmesz"
-LABEL org.opencontainers.image.title="Moltbot Unraid - AI Butler"
-LABEL org.opencontainers.image.description="Smart home butler with browser automation, audio processing, and data analytics"
+LABEL org.opencontainers.image.title="Moltbot Unraid"
+LABEL org.opencontainers.image.description="Moltbot AI agent gateway for Unraid - connects AI to messaging platforms"
 LABEL org.opencontainers.image.authors="pimmesz"
 LABEL org.opencontainers.image.url="https://github.com/pimmesz/moltbot-unraid"
 LABEL org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid"
 LABEL org.opencontainers.image.documentation="https://github.com/pimmesz/moltbot-unraid/blob/main/README.md"
 
+# Expose Gateway WebSocket port
 EXPOSE 18789
+
+# Declare volume for persistent data
 VOLUME ["/config"]
 
+# Health check using dedicated script
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD /healthcheck.sh
 
+# Use start.sh as entrypoint for PUID/PGID handling
 ENTRYPOINT ["/start.sh"]
+
+# Default command runs the gateway
+# Can be overridden with: docker run ... moltbot-unraid <custom-command>
 CMD ["gateway"]
