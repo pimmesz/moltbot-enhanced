@@ -1,0 +1,121 @@
+name: Auto-merge Bot PRs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  check_suite:
+    types: [completed]
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.user.login == 'Moltbot-unraid' ||
+      (github.event.workflow_run && github.event.workflow_run.conclusion == 'success')
+    
+    steps:
+      - name: Check if PR is from Moltbot-unraid
+        id: check-author
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ "${{ github.event.pull_request.user.login }}" == "Moltbot-unraid" ]; then
+            echo "is_bot_pr=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_bot_pr=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for status checks
+        if: steps.check-author.outputs.is_bot_pr == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+            console.log(`Checking status of PR #${number}...`);
+            
+            // Wait for checks to complete (max 5 minutes)
+            let attempts = 0;
+            while (attempts < 30) {
+              const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
+              console.log(`Status: ${pr.data.mergeable_state}`);
+              
+              if (pr.data.mergeable_state === 'clean' || pr.data.mergeable_state === 'has_hooks') {
+                console.log('Ready to merge!');
+                break;
+              }
+              
+              if (pr.data.mergeable_state === 'dirty') {
+                throw new Error('PR has merge conflicts - cannot auto-merge');
+              }
+              
+              // Wait 10 seconds before checking again
+              await new Promise(resolve => setTimeout(resolve, 10000));
+              attempts++;
+            }
+
+      - name: Auto-merge PR
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_run'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            let pull_number;
+            
+            if (context.issue.number) {
+              // From pull_request event
+              pull_number = context.issue.number;
+            } else if (context.payload.workflow_run) {
+              // From workflow_run event - find associated PR
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: context.payload.workflow_run.workflow_id,
+                head_branch: 'fix/simplify-dockerfile'
+              });
+              
+              if (runs.data.workflow_runs.length === 0) {
+                console.log('No workflow runs found');
+                return;
+              }
+              
+              // Find PR for this workflow run
+              const prs = await github.rest.pulls.list({
+                owner,
+                repo,
+                state: 'open'
+              });
+              
+              const botPrs = prs.data.filter(pr => pr.user.login === 'Moltbot-unraid' && pr.state === 'open');
+              if (botPrs.length === 0) {
+                console.log('No open PRs from Moltbot-unraid');
+                return;
+              }
+              
+              pull_number = botPrs[0].number;
+            } else {
+              console.log('Could not determine PR number');
+              return;
+            }
+            
+            console.log(`Auto-merging PR #${pull_number}...`);
+            
+            try {
+              await github.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number,
+                merge_method: 'squash',
+                commit_message: `Merge PR #${pull_number} from Moltbot-unraid`
+              });
+              
+              console.log(`✅ Successfully merged PR #${pull_number}`);
+            } catch (error) {
+              console.log(`Could not merge: ${error.message}`);
+              console.log('This is OK - checks may not have passed yet');
+            }
