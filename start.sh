@@ -289,29 +289,57 @@ if [ $# -eq 0 ] || [ "$1" = "gateway" ]; then
     TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
     if [ -n "$MOLTBOT_TOKEN" ]; then
         # User provided token via environment
-        export MOLTBOT_TOKEN
-        CMD="$CMD --token $MOLTBOT_TOKEN"
+        FINAL_TOKEN="$MOLTBOT_TOKEN"
     elif [ -f "$TOKEN_FILE" ]; then
         # Use previously generated token
-        GENERATED_TOKEN=$(cat "$TOKEN_FILE")
-        export MOLTBOT_TOKEN="$GENERATED_TOKEN"
+        FINAL_TOKEN=$(cat "$TOKEN_FILE")
         log "Using auto-generated token from previous run"
-        CMD="$CMD --token $GENERATED_TOKEN"
     else
         # Generate new token on first run
-        GENERATED_TOKEN=$(openssl rand -hex 32)
-        echo "$GENERATED_TOKEN" > "$TOKEN_FILE"
+        FINAL_TOKEN=$(openssl rand -hex 32)
+        echo "$FINAL_TOKEN" > "$TOKEN_FILE"
         chmod 600 "$TOKEN_FILE"
         chown "$PUID:$PGID" "$TOKEN_FILE"
-        export MOLTBOT_TOKEN="$GENERATED_TOKEN"
         log "==================================================================="
         log "AUTO-GENERATED GATEWAY TOKEN (save this for API access):"
-        log "$GENERATED_TOKEN"
+        log "$FINAL_TOKEN"
         log "==================================================================="
         log "Token saved to: $TOKEN_FILE"
         log "To use a custom token, set MOLTBOT_TOKEN environment variable"
-        CMD="$CMD --token $GENERATED_TOKEN"
     fi
+    
+    # Export token for all child processes
+    export MOLTBOT_TOKEN="$FINAL_TOKEN"
+    
+    # Add token to config file so moltbot-probe and CLI can read it
+    if [ -f "$MOLTBOT_STATE/moltbot.json" ]; then
+        python3 <<PYTHON
+import json
+import sys
+
+try:
+    with open('$MOLTBOT_STATE/moltbot.json', 'r') as f:
+        config = json.load(f)
+    
+    # Ensure gateway structure exists
+    if 'gateway' not in config:
+        config['gateway'] = {}
+    if 'auth' not in config['gateway']:
+        config['gateway']['auth'] = {}
+    
+    # Set token in config
+    config['gateway']['auth']['token'] = '$FINAL_TOKEN'
+    
+    with open('$MOLTBOT_STATE/moltbot.json', 'w') as f:
+        json.dump(config, f, indent=2)
+except Exception as e:
+    print(f"⚠️  Could not update config with token: {e}", file=sys.stderr)
+    sys.exit(0)  # Don't fail startup
+PYTHON
+    fi
+    
+    # Use token in gateway command
+    CMD="$CMD --token $FINAL_TOKEN"
     
     # Skip the "gateway" arg if it was passed
     if [ "$1" = "gateway" ]; then
