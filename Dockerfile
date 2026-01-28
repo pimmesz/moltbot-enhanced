@@ -54,6 +54,7 @@ RUN apt-get update && \
     ca-certificates \
     passwd \
     procps \
+    ffmpeg \
     && \
     rm -rf /var/lib/apt/lists/*
 
