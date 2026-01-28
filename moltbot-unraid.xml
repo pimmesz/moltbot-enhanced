@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>moltbot-unraid</Name>
+  <Repository>pimmesz/moltbot-unraid:latest</Repository>
+  <Registry>https://hub.docker.com/r/pimmesz/moltbot-unraid</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/pimmesz/moltbot-unraid/issues</Support>
+  <Project>https://github.com/moltbot/moltbot</Project>
+  <Overview>Moltbot AI agent gateway for Unraid. Connect AI to messaging platforms like WhatsApp, Telegram, Discord, Slack, and more.&#xD;
+&#xD;
+After installation:&#xD;
+1. Start the container&#xD;
+2. Run: docker exec -it moltbot-unraid moltbot onboard&#xD;
+3. Follow the interactive setup to configure AI providers and channels&#xD;
+4. Access the Web UI from the logs (tokenized URL)&#xD;
+  </Overview>
+  <Category>Tools: Status:Stable</Category>
+  <WebUI>http://[IP]:[PORT:18789]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/pimmesz/moltbot-unraid/main/moltbot-unraid.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/pimmesz/moltbot-unraid/main/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI Port" Target="18789" Default="18789" Mode="tcp" Description="Gateway WebSocket port" Type="Port" Display="always" Required="true" Mask="false">18789</Config>
+  <Config Name="AppData" Target="/config" Default="/mnt/user/appdata/moltbot" Mode="rw" Description="Persistent configuration and data directory" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/moltbot</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID (Unraid default: 99)" Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID (Unraid default: 100)" Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
+  <Config Name="TZ" Target="TZ" Default="America/New_York" Mode="" Description="Timezone (e.g., America/New_York, Europe/London)" Type="Variable" Display="advanced" Required="false" Mask="false">America/New_York</Config>
+  <Config Name="Anthropic API Key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Anthropic (Claude) API key - get from console.anthropic.com" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="OpenAI API Key" Target="OPENAI_API_KEY" Default="" Mode="" Description="OpenAI API key - get from platform.openai.com" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="OpenRouter API Key" Target="OPENROUTER_API_KEY" Default="" Mode="" Description="OpenRouter API key - get from openrouter.ai" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Gemini API Key" Target="GEMINI_API_KEY" Default="" Mode="" Description="Google Gemini API key - get from ai.google.dev" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Gateway Port" Target="MOLTBOT_PORT" Default="18789" Mode="" Description="Gateway port (change if port 18789 is already in use)" Type="Variable" Display="advanced" Required="false" Mask="false">18789</Config>
+  <Config Name="Gateway Bind Mode" Target="MOLTBOT_BIND" Default="lan" Mode="" Description="Network bind mode: lan (all interfaces) or loopback (localhost only)" Type="Variable" Display="advanced" Required="false" Mask="false">lan</Config>
+</Container>

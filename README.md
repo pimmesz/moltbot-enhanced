@@ -23,6 +23,29 @@ docker exec -it moltbot moltbot onboard
 
 ## Installation
 
+### Unraid (Recommended)
+
+1. Go to **Docker** tab in Unraid
+2. Click **Add Container**
+3. Toggle **Advanced View**
+4. Set **Template repositories** to:
+   ```
+   https://raw.githubusercontent.com/pimmesz/moltbot-unraid/main/moltbot-unraid.xml
+   ```
+5. Search for "moltbot" and select **moltbot-unraid**
+6. Configure settings (API keys, timezone, etc.)
+7. Click **Apply**
+
+The template automatically configures:
+- Volume mapping: `/mnt/user/appdata/moltbot` → `/config` (persistent storage)
+- Port: `18789` (Gateway WebSocket)
+- PUID/PGID: `99`/`100` (Unraid defaults)
+
+After installation:
+```bash
+docker exec -it moltbot-unraid moltbot onboard
+```
+
 ### Docker Compose
 
 ```yaml

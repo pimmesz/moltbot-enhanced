@@ -92,6 +92,9 @@ LABEL org.opencontainers.image.documentation="https://github.com/pimmesz/moltbot
 # Expose Gateway WebSocket port
 EXPOSE 18789
 
+# Declare volume for persistent data
+VOLUME ["/config"]
+
 # Health check using dedicated script
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD /healthcheck.sh
