@@ -1,22 +1,23 @@
 #!/bin/bash
-# Moltbot health check script
-# Checks if the gateway is responsive
+# Health check for moltbot container
 
-set -e
+# Check if moltbot process is running
+if ! pgrep -f "node.*moltbot" > /dev/null; then
+    exit 1
+fi
 
-# Default port if not set
-PORT="${MOLTBOT_PORT:-18789}"
+# Check if port 18789 is listening
+if ! netstat -tuln 2>/dev/null | grep -q ":18789 "; then
+    # Fallback for systems without netstat
+    if ! ss -tuln 2>/dev/null | grep -q ":18789 "; then
+        exit 1
+    fi
+fi
 
-# Check if the health endpoint responds
-if curl -sf "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
+# Check if moltbot responds
+if ! curl -sf http://localhost:18789/health > /dev/null 2>&1; then
+    # If health endpoint doesn't exist, just check port
     exit 0
 fi
 
-# If health endpoint fails, check if the process is at least running
-if pgrep -f "moltbot gateway" >/dev/null 2>&1; then
-    # Process is running but health endpoint not responding yet (starting up)
-    exit 0
-fi
-
-# Process not running
-exit 1
+exit 0

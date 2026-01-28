@@ -1,15 +1,19 @@
 #!/bin/bash
-# Wrapper for moltbot CLI commands
-# Ensures all commands run as the correct non-root user
+# Wrapper for moltbot binary
+# Ensures proper environment and logging
 
-# Get PUID/PGID from environment or use defaults
-PUID=${PUID:-99}
-PGID=${PGID:-100}
+set -e
 
-# If already running as the target user, just execute
-if [ "$(id -u)" = "$PUID" ]; then
-    exec /usr/local/bin/moltbot-real "$@"
-fi
+# Source environment if available
+[ -f /etc/environment ] && source /etc/environment
 
-# Otherwise, use gosu to run as the correct user
-exec gosu "$PUID:$PGID" env HOME=/config /usr/local/bin/moltbot-real "$@"
+# Export moltbot-specific vars
+export MOLTBOT_CONFIG_DIR="${MOLTBOT_CONFIG_DIR:-/config/moltbot}"
+export MOLTBOT_PORT="${MOLTBOT_PORT:-18789}"
+export MOLTBOT_BIND="${MOLTBOT_BIND:-lan}"
+
+# Ensure config directory exists
+mkdir -p "$MOLTBOT_CONFIG_DIR"
+
+# Run the real moltbot binary
+exec /usr/local/bin/moltbot-real "$@"
