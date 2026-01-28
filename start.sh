@@ -125,11 +125,14 @@ fi
 # ============================================================================
 
 # Moltbot state directories
-# We set HOME=/config so ~/.moltbot becomes /config/.moltbot
-MOLTBOT_STATE="/config/.moltbot"
+# IMPORTANT: moltbot uses ~/.clawdbot/ internally (not ~/.moltbot/)
+# We set HOME=/config so ~/.clawdbot becomes /config/.clawdbot
+MOLTBOT_STATE="/config/.clawdbot"
 MOLTBOT_WORKSPACE="/config/workspace"
 
 log "Initializing state directories..."
+log "State directory: $MOLTBOT_STATE"
+log "Workspace: $MOLTBOT_WORKSPACE"
 
 # Create required directories
 mkdir -p "$MOLTBOT_STATE" "$MOLTBOT_WORKSPACE" /tmp/moltbot
@@ -378,7 +381,9 @@ log "Executing: $CMD"
 
 # Use gosu to run as non-root user
 # Note: We can't use exec here because we need to wait for the process
-gosu "$PUID:$PGID" sh -c "$CMD" &
+# IMPORTANT: Explicitly set HOME=/config because gosu resets HOME to the user's
+# passwd entry, which may not be /config for existing users like 'nobody'
+gosu "$PUID:$PGID" env HOME=/config sh -c "$CMD" &
 APP_PID=$!
 
 # Wait a moment for startup, then show welcome message
@@ -411,7 +416,7 @@ if kill -0 "$APP_PID" 2>/dev/null; then
     log "  Health: docker exec moltbot moltbot doctor"
     log "  Status: docker exec moltbot moltbot status"
     log ""
-    log "Config: /config/.moltbot/"
+    log "Config: /config/.clawdbot/"
     log "==================================================================="
 fi
 
