@@ -41,84 +41,31 @@ ENV TZ=UTC
 ENV MOLTBOT_PORT=18789
 ENV MOLTBOT_BIND=lan
 
-# Install balanced AI butler runtime dependencies
+# Install essential runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    # === Core Runtime ===
     gosu \
     tzdata \
-    bash \
     git \
     curl \
     ca-certificates \
-    passwd \
     procps \
-    \
-    # === Browser Automation (Sonos, Smart Home) ===
-    firefox-esr \
-    xvfb \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libxss1 \
-    libasound2 \
-    libglib2.0-0 \
-    \
-    # === Audio Processing ===
-    ffmpeg \
-    ffprobe \
-    pulseaudio-utils \
-    alsa-utils \
-    sox \
-    libsox-fmt-all \
-    flac \
-    vorbis-tools \
-    \
-    # === Network Tools ===
-    iputils-ping \
-    iputils-tracepath \
-    telnet \
-    netcat-openbsd \
-    dnsutils \
-    openssl \
-    openssh-client \
-    iproute2 \
-    wget \
-    \
-    # === Data & Analytics ===
-    jq \
-    grep \
-    sed \
-    awk \
-    \
-    # === File Management ===
-    unzip \
-    zip \
-    tar \
-    xz-utils \
-    gzip \
-    bzip2 \
-    \
-    # === System Tools ===
     python3 \
     python3-pip \
     python3-venv \
-    python3-dev \
-    build-essential \
+    && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install audio/video and additional tools in separate layer
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ffmpeg \
+    sox \
     sqlite3 \
     postgresql-client \
-    \
-    # === Monitoring ===
-    htop \
-    iotop \
-    \
-    # === Editors ===
-    vim-tiny \
-    nano \
+    jq \
+    wget \
+    unzip \
     && \
     rm -rf /var/lib/apt/lists/*
 
