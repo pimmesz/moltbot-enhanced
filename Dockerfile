@@ -159,6 +159,7 @@ RUN pip3 install --no-cache-dir \
 RUN python3 -m playwright install chromium --with-deps
 
 # === Install Node.js utilities ===
+
 RUN npm install -g \
     pm2 \
     http-server
