@@ -125,7 +125,7 @@ fi
 # ============================================================================
 
 # Moltbot state directories
-# IMPORTANT: moltbot uses ~/.clawdbot/ internally (not ~/.moltbot/)
+# IMPORTANT: moltbot CLI uses ~/.clawdbot/ internally
 # We set HOME=/config so ~/.clawdbot becomes /config/.clawdbot
 MOLTBOT_STATE="/config/.clawdbot"
 MOLTBOT_WORKSPACE="/config/workspace"
@@ -136,6 +136,46 @@ log "Workspace: $MOLTBOT_WORKSPACE"
 
 # Create required directories
 mkdir -p "$MOLTBOT_STATE" "$MOLTBOT_WORKSPACE" /tmp/moltbot
+
+# Migration: if old .moltbot directory exists, migrate to .clawdbot
+OLD_STATE="/config/.moltbot"
+if [ -d "$OLD_STATE" ] && [ ! -L "$OLD_STATE" ] && [ "$OLD_STATE" != "$MOLTBOT_STATE" ]; then
+    log "Migrating config from $OLD_STATE to $MOLTBOT_STATE..."
+    cp -rn "$OLD_STATE"/* "$MOLTBOT_STATE/" 2>/dev/null || true
+    mv "$OLD_STATE" "$OLD_STATE.migrated.$(date +%s)"
+    log "Old config backed up to $OLD_STATE.migrated.*"
+fi
+
+# Create symlinks so docker exec commands (which run as root with HOME=/root) 
+# also use the correct config and workspace directories
+# This ensures consistency whether running via gosu or docker exec
+
+# Symlink for config: /root/.clawdbot -> /config/.clawdbot
+if [ ! -L /root/.clawdbot ] && [ ! -d /root/.clawdbot ]; then
+    ln -sf "$MOLTBOT_STATE" /root/.clawdbot
+    log "Created symlink: /root/.clawdbot -> $MOLTBOT_STATE"
+elif [ -d /root/.clawdbot ] && [ ! -L /root/.clawdbot ]; then
+    # If it's a real directory (not a symlink), move contents and create symlink
+    log "Moving existing /root/.clawdbot contents to $MOLTBOT_STATE"
+    cp -rn /root/.clawdbot/* "$MOLTBOT_STATE/" 2>/dev/null || true
+    rm -rf /root/.clawdbot
+    ln -sf "$MOLTBOT_STATE" /root/.clawdbot
+    log "Created symlink: /root/.clawdbot -> $MOLTBOT_STATE"
+fi
+
+# Symlink for workspace: /root/clawd -> /config/workspace (moltbot uses ~/clawd)
+if [ ! -L /root/clawd ] && [ ! -d /root/clawd ]; then
+    ln -sf "$MOLTBOT_WORKSPACE" /root/clawd
+    log "Created symlink: /root/clawd -> $MOLTBOT_WORKSPACE"
+fi
+
+# Also create symlinks in /config for consistency when HOME=/config
+if [ ! -L /config/.clawdbot ] && [ "$MOLTBOT_STATE" != "/config/.clawdbot" ]; then
+    ln -sf "$MOLTBOT_STATE" /config/.clawdbot 2>/dev/null || true
+fi
+if [ ! -L /config/clawd ]; then
+    ln -sf "$MOLTBOT_WORKSPACE" /config/clawd 2>/dev/null || true
+fi
 
 # ============================================================================
 # Token Handling - BEFORE config creation
