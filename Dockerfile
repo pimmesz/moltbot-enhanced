@@ -55,7 +55,8 @@ RUN apt-get update && \
     procps \
     \
     # === Browser Automation (Sonos, Smart Home) ===
-    chromium \
+    firefox-esr \
+    xvfb \
     libnss3 \
     libatk-bridge2.0-0 \
     libdrm2 \
@@ -66,7 +67,6 @@ RUN apt-get update && \
     libxss1 \
     libasound2 \
     libglib2.0-0 \
-    xvfb \
     \
     # === Audio Processing ===
     ffmpeg \
@@ -91,7 +91,6 @@ RUN apt-get update && \
     \
     # === Data & Analytics ===
     jq \
-    yq \
     grep \
     sed \
     awk \

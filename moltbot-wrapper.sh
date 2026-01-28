@@ -26,11 +26,10 @@ export MOLTBOT_BIND="${MOLTBOT_BIND:-lan}"
 export HOME="${HOME:-/config}"
 export NODE_ENV="${NODE_ENV:-production}"
 
-# Chromium/Puppeteer settings for headless browser
+# Browser settings for Playwright/Puppeteer
 export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-export CHROME_PATH=/usr/bin/chromium
-export CHROMIUM_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
+export FIREFOX_PATH=/usr/bin/firefox
+export BROWSER_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
 
 # Ensure config directory exists
 mkdir -p "$MOLTBOT_CONFIG_DIR"

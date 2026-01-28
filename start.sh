@@ -46,14 +46,13 @@ if [ -n "$TZ" ] && [ -f "/usr/share/zoneinfo/$TZ" ]; then
     log_info "Timezone set to $TZ"
 fi
 
-# Start Xvfb for headless browser support (if installed)
-if command -v Xvfb > /dev/null 2>&1; then
-    if [ -z "$DISPLAY" ]; then
-        export DISPLAY=:99
-        Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-        log_info "Started Xvfb on display :99"
-        sleep 1
-    fi
+# Start Xvfb for headless browser support (if installed and DISPLAY not set)
+if [ -z "$DISPLAY" ] && command -v Xvfb > /dev/null 2>&1; then
+    export DISPLAY=:99
+    Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset > /dev/null 2>&1 &
+    XVFB_PID=$!
+    log_info "Started Xvfb on display :99 (PID: $XVFB_PID)"
+    sleep 2
 fi
 
 # Export environment for moltbot
