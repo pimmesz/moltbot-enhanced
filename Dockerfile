@@ -75,10 +75,15 @@ WORKDIR /
 RUN mkdir -p /config /tmp/moltbot && \
     chmod 1777 /tmp
 
-# Copy entrypoint and health check scripts
+# Copy entrypoint, health check, and wrapper scripts
 COPY start.sh /start.sh
 COPY healthcheck.sh /healthcheck.sh
-RUN chmod +x /start.sh /healthcheck.sh
+COPY moltbot-wrapper.sh /usr/local/bin/moltbot-wrapper
+RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper
+
+# Replace moltbot binary with wrapper to ensure correct user for all commands
+RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
+    ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
 
 # Metadata labels for Docker Hub
 LABEL maintainer="pimmesz"
