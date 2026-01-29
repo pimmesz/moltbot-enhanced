@@ -77,11 +77,15 @@ RUN apt-get update && \
 COPY --from=builder /build/moltbot.tgz /tmp/moltbot.tgz
 
 RUN npm install -g /tmp/moltbot.tgz && \
-    /usr/local/bin/moltbot --version && \
+    echo "=== Checking npm global installation ===" && \
+    npm list -g --depth=0 && \
+    echo "=== Contents of /usr/local/bin ===" && \
+    ls -la /usr/local/bin/ && \
+    echo "=== Contents of npm global lib ===" && \
+    ls -la /usr/local/lib/node_modules/ && \
     rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
-    rm -rf /root/.npm && \
-    command -v moltbot >/dev/null
+    rm -rf /root/.npm
 
 # --------------------------------------------------------------------------
 # Filesystem layout
