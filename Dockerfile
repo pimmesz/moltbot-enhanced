@@ -25,14 +25,16 @@ RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
-# Build Moltbot + pack to a dedicated dir (avoid /tmp ambiguity)
+# Build Moltbot + pack the actual moltbot package (not the monorepo root)
 RUN pnpm build && \
     pnpm ui:build && \
     mkdir -p /build/pkg && \
-    pnpm pack --pack-destination /build/pkg && \
+    pnpm -r --filter "moltbot" pack --pack-destination /build/pkg && \
     ls -la /build/pkg && \
     PKG="$(ls -1 /build/pkg/*.tgz | head -n 1)" && \
-    cp "$PKG" /build/moltbot.tgz
+    cp "$PKG" /build/moltbot.tgz && \
+    echo "== packed contents (bin sanity) ==" && \
+    tar -tf /build/moltbot.tgz | sed -n '1,120p'
 
 
 # ============================================================================
