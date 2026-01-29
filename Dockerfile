@@ -30,8 +30,11 @@ RUN apt-get update && \
       procps \
       chromium \
       python3 \
+      python3-pip \
       openssl \
       git \
+      jq \
+      sqlite3 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /config /tmp/moltbot \
     && chmod 1777 /tmp /tmp/moltbot
@@ -65,7 +68,7 @@ LABEL maintainer="pimmesz" \
       org.opencontainers.image.title="Moltbot Unraid" \
       org.opencontainers.image.description="Moltbot AI agent gateway for Unraid" \
       org.opencontainers.image.authors="pimmesz" \
-      org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid"
+      org.opencontainers.image.source="https://github.com/pimmesz/moltbot-enhanced"
 
 EXPOSE 18789
 VOLUME ["/config"]
