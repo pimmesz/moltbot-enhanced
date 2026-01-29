@@ -37,12 +37,12 @@ RUN apt-get update && \
     && chmod 1777 /tmp /tmp/moltbot
 
 # --------------------------------------------------------------------------
-# Install Moltbot from npm (still published as 'clawdbot' during rename)
+# Install Moltbot from npm (using beta until @latest tag is updated)
 # Uses BuildKit cache mount for faster rebuilds
 # --------------------------------------------------------------------------
 RUN --mount=type=cache,target=/root/.npm \
-    npm install -g clawdbot@latest && \
-    clawdbot --version
+    npm install -g moltbot@beta && \
+    moltbot --version
 
 # --------------------------------------------------------------------------
 # Copy and setup entrypoint scripts
@@ -53,7 +53,7 @@ COPY healthcheck.sh /healthcheck.sh
 
 RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper && \
     # Enforce wrapper as the ONLY Moltbot entrypoint
-    mv /usr/local/bin/clawdbot /usr/local/bin/moltbot-real && \
+    mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/clawdbot && \
     chmod 755 /usr/local/bin/moltbot-real
