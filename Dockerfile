@@ -4,6 +4,7 @@
 
 FROM node:24-slim AS builder
 
+SHELL ["/bin/bash", "-lc"]
 WORKDIR /build
 
 RUN apt-get update && \
@@ -24,10 +25,14 @@ RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
-# Build Moltbot
+# Build Moltbot + pack to a dedicated dir (avoid /tmp ambiguity)
 RUN pnpm build && \
     pnpm ui:build && \
-    pnpm pack
+    mkdir -p /build/pkg && \
+    pnpm pack --pack-destination /build/pkg && \
+    ls -la /build/pkg && \
+    PKG="$(ls -1 /build/pkg/*.tgz | head -n 1)" && \
+    cp "$PKG" /build/moltbot.tgz
 
 
 # ============================================================================
@@ -39,7 +44,6 @@ FROM node:24-slim
 # --------------------------------------------------------------------------
 # Unraid defaults
 # --------------------------------------------------------------------------
-
 ENV PUID=99
 ENV PGID=100
 ENV TZ=UTC
@@ -50,7 +54,6 @@ ENV MOLTBOT_BIND=lan
 # --------------------------------------------------------------------------
 # Runtime dependencies
 # --------------------------------------------------------------------------
-
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       gosu \
@@ -68,10 +71,10 @@ RUN apt-get update && \
 # --------------------------------------------------------------------------
 # Install Moltbot package
 # --------------------------------------------------------------------------
-
-COPY --from=builder /build/moltbot-*.tgz /tmp/moltbot.tgz
+COPY --from=builder /build/moltbot.tgz /tmp/moltbot.tgz
 
 RUN npm install -g /tmp/moltbot.tgz && \
+    moltbot --version && \
     rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
     rm -rf /root/.npm && \
@@ -80,7 +83,6 @@ RUN npm install -g /tmp/moltbot.tgz && \
 # --------------------------------------------------------------------------
 # Filesystem layout
 # --------------------------------------------------------------------------
-
 WORKDIR /
 
 RUN mkdir -p /config /tmp/moltbot && \
@@ -89,7 +91,6 @@ RUN mkdir -p /config /tmp/moltbot && \
 # --------------------------------------------------------------------------
 # Install entrypoint + wrapper
 # --------------------------------------------------------------------------
-
 COPY start.sh /start.sh
 COPY moltbot-wrapper.sh /usr/local/bin/moltbot-wrapper
 COPY healthcheck.sh /healthcheck.sh
@@ -102,20 +103,13 @@ RUN chmod +x \
 # --------------------------------------------------------------------------
 # Enforce wrapper as the ONLY Moltbot entrypoint
 # --------------------------------------------------------------------------
-
-# Rename real binary
 RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real
-
-# Wrapper becomes the public command
 RUN ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
-
-# Optional hardening: make real binary non-public
 RUN chmod 750 /usr/local/bin/moltbot-real
 
 # --------------------------------------------------------------------------
 # Metadata
 # --------------------------------------------------------------------------
-
 LABEL maintainer="pimmesz"
 LABEL org.opencontainers.image.title="Moltbot Unraid"
 LABEL org.opencontainers.image.description="Moltbot AI agent gateway for Unraid"
@@ -125,20 +119,17 @@ LABEL org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid
 # --------------------------------------------------------------------------
 # Networking & persistence
 # --------------------------------------------------------------------------
-
 EXPOSE 18789
 VOLUME ["/config"]
 
 # --------------------------------------------------------------------------
 # Healthcheck (runs via wrapper environment)
 # --------------------------------------------------------------------------
-
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD HOME=/config /healthcheck.sh
 
 # --------------------------------------------------------------------------
 # Entrypoint & default command
 # --------------------------------------------------------------------------
-
 ENTRYPOINT ["/start.sh"]
 CMD ["gateway"]

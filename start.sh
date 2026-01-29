@@ -78,6 +78,7 @@ MOLTBOT_STATE="/config/.clawdbot"
 MOLTBOT_WORKSPACE="/config/workspace"
 CONFIG_PATH="$MOLTBOT_STATE/moltbot.json"
 TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
+CRED_DIR="$MOLTBOT_STATE/credentials"
 
 export MOLTBOT_STATE_DIR="$MOLTBOT_STATE"
 
@@ -87,11 +88,13 @@ log "Workspace: $MOLTBOT_WORKSPACE"
 mkdir -p \
   "$MOLTBOT_STATE" \
   "$MOLTBOT_WORKSPACE" \
+  "$CRED_DIR" \
   "$XDG_CACHE_HOME" \
   "$XDG_RUNTIME_DIR"
 
 # ---------------------------------------------------------------------------
 # Permissions (DON’T chown all of /config)
+# IMPORTANT: docker exec as root may create/modify files -> we correct on boot.
 # ---------------------------------------------------------------------------
 
 chown -R "$PUID:$PGID" \
@@ -102,9 +105,21 @@ chown -R "$PUID:$PGID" \
   2>/dev/null || true
 
 chmod 700 "$MOLTBOT_STATE" 2>/dev/null || true
+chmod 700 "$CRED_DIR" 2>/dev/null || true
 chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
 chmod 700 "$XDG_CACHE_HOME" 2>/dev/null || true
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+
+# If config/token already exist, force them back to runtime ownership + perms
+# (prevents EACCES loops after docker exec / root touching files)
+if [ -f "$CONFIG_PATH" ]; then
+  chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
+  chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+fi
+if [ -f "$TOKEN_FILE" ]; then
+  chown "$PUID:$PGID" "$TOKEN_FILE" 2>/dev/null || true
+  chmod 600 "$TOKEN_FILE" 2>/dev/null || true
+fi
 
 # ---------------------------------------------------------------------------
 # Token (persistent)
@@ -171,15 +186,6 @@ else
     log "WARNING: python3 not found; skipping moltbot.json validation"
   fi
 fi
-
-# ---------------------------------------------------------------------------
-# 🔒 FINAL SAFETY NET (THIS FIXES YOUR EACCES ISSUE)
-# ---------------------------------------------------------------------------
-
-# Ensure config is always readable by Moltbot user,
-# even if something touched it earlier as root
-chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
-chmod 600 "$CONFIG_PATH" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # Launch Moltbot (via wrapper so HOME is ALWAYS /config)
