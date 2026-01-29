@@ -1,49 +1,5 @@
 # ============================================================================
-# Stage 1: Build Moltbot from source
-# ============================================================================
-
-FROM node:24-slim AS builder
-
-SHELL ["/bin/bash", "-lc"]
-WORKDIR /build
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      git \
-      python3 \
-      make \
-      g++ \
-      ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN npm install -g pnpm@latest
-
-# Clone Moltbot source
-RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
-
-# Install deps with pnpm cache
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
-
-# Build Moltbot + pack the actual moltbot package (not the monorepo root)
-RUN pnpm build && \
-    pnpm ui:build && \
-    echo "=== Checking what was built ===" && \
-    find /build -name "package.json" -type f | grep -E "packages/moltbot" | head -5 && \
-    echo "=== Checking moltbot package directory ===" && \
-    ls -la /build/packages/moltbot/ 2>/dev/null || ls -la /build/apps/moltbot/ 2>/dev/null || echo "Cannot find moltbot package" && \
-    echo "=== Packing moltbot ===" && \
-    mkdir -p /build/pkg && \
-    pnpm -r --filter "moltbot" pack --pack-destination /build/pkg && \
-    ls -la /build/pkg && \
-    PKG="$(ls -1 /build/pkg/*.tgz | head -n 1)" && \
-    cp "$PKG" /build/moltbot.tgz && \
-    echo "=== Packed contents (first 200 lines) ===" && \
-    tar -tf /build/moltbot.tgz | head -200
-
-
-# ============================================================================
-# Stage 2: Runtime image (Unraid-friendly)
+# Moltbot Unraid - Single-stage build (installs from npm)
 # ============================================================================
 
 FROM node:24-slim
@@ -73,20 +29,13 @@ RUN apt-get update && \
       chromium \
       python3 \
       openssl \
-      git \
     && rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------------
-# Install Moltbot package
+# Install Moltbot from npm
 # --------------------------------------------------------------------------
-COPY --from=builder /build/moltbot.tgz /tmp/moltbot.tgz
-
-RUN npm install -g /tmp/moltbot.tgz && \
-    echo "=== Checking installed package.json ===" && \
-    cat /usr/local/lib/node_modules/moltbot/package.json && \
-    echo "=== Full directory tree ===" && \
-    find /usr/local/lib/node_modules/moltbot -type f | head -50 && \
-    rm -f /tmp/moltbot.tgz && \
+RUN npm install -g moltbot@latest && \
+    moltbot --version && \
     npm cache clean --force && \
     rm -rf /root/.npm
 
@@ -113,13 +62,9 @@ RUN chmod +x \
 # --------------------------------------------------------------------------
 # Enforce wrapper as the ONLY Moltbot entrypoint
 # --------------------------------------------------------------------------
-RUN if [ -f /usr/local/bin/moltbot ]; then \
-      mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
-      chmod 750 /usr/local/bin/moltbot-real; \
-    else \
-      echo "WARNING: /usr/local/bin/moltbot not found, skipping wrapper setup"; \
-    fi && \
-    ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
+RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
+    ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot && \
+    chmod 750 /usr/local/bin/moltbot-real
 
 # --------------------------------------------------------------------------
 # Metadata
