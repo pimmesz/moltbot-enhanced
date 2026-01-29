@@ -58,9 +58,9 @@ else
 fi
 echo ""
 
-# Get auto-generated token
-if docker exec $CONTAINER_NAME test -f /config/.moltbot/.moltbot_token 2>/dev/null; then
-    TOKEN=$(docker exec $CONTAINER_NAME cat /config/.moltbot/.moltbot_token 2>/dev/null)
+# Get auto-generated token (NEW PATH)
+if docker exec $CONTAINER_NAME test -f /config/.clawdbot/.moltbot_token 2>/dev/null; then
+    TOKEN=$(docker exec $CONTAINER_NAME cat /config/.clawdbot/.moltbot_token 2>/dev/null)
     if [ -n "$TOKEN" ]; then
         echo "🔑 Auto-generated token:"
         echo "   $TOKEN"

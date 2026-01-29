@@ -173,6 +173,15 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 🔒 FINAL SAFETY NET (THIS FIXES YOUR EACCES ISSUE)
+# ---------------------------------------------------------------------------
+
+# Ensure config is always readable by Moltbot user,
+# even if something touched it earlier as root
+chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
+chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
 # Launch Moltbot (via wrapper so HOME is ALWAYS /config)
 # ---------------------------------------------------------------------------
 
