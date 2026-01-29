@@ -1,10 +1,11 @@
 #!/bin/bash
-# Moltbot Unraid Entrypoint (FIXED)
+# Moltbot Unraid Entrypoint (FINAL)
 # Goals:
 # - Single source of truth for state: /config/.clawdbot (via HOME=/config)
 # - Never write state under /root (no symlinks)
 # - No watchdog loops; fix permissions deterministically at startup + after patch
 # - Run gateway as PUID:PGID with HOME=/config
+# - IMPORTANT: Only THIS script does gosu. Wrapper must NOT gosu.
 
 set -euo pipefail
 
@@ -54,43 +55,9 @@ fi
 log "Starting Moltbot with PUID=$PUID, PGID=$PGID"
 
 # ============================================================================
-# AI Provider Validation (non-fatal)
-# Supports OpenAI/Anthropic/OpenRouter/Gemini + OpenCode/Zen envs
-# ============================================================================
-
-has_any_key="no"
-for v in ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GEMINI_API_KEY OPENCODE_API_KEY ZEN_API_KEY OPENCODE_ZEN_API_KEY; do
-  if [ -n "${!v:-}" ]; then
-    has_any_key="yes"
-  fi
-done
-
-if [ "$has_any_key" = "no" ]; then
-  log "WARNING: No AI provider API key detected!"
-  log "The gateway will start, but AI features will not work."
-  log "Please set at least one of:"
-  log "  - ANTHROPIC_API_KEY (recommended)"
-  log "  - OPENAI_API_KEY"
-  log "  - OPENROUTER_API_KEY"
-  log "  - GEMINI_API_KEY"
-  log "  - OPENCODE_API_KEY (or ZEN_API_KEY / OPENCODE_ZEN_API_KEY)"
-  log ""
-  log "Waiting 10 seconds before starting (Ctrl+C to cancel)..."
-  sleep 10
-else
-  # Masked presence check (no leaks)
-  present_vars=""
-  for v in ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GEMINI_API_KEY OPENCODE_API_KEY ZEN_API_KEY OPENCODE_ZEN_API_KEY; do
-    if [ -n "${!v:-}" ]; then present_vars="${present_vars}${v} "; fi
-  done
-  log "AI provider key(s) detected: ${present_vars}"
-fi
-
-# ============================================================================
 # User/Group Setup (Debian)
 # ============================================================================
 
-# Ensure group exists for PGID
 if ! getent group "$PGID" >/dev/null 2>&1; then
   log "Creating group with GID $PGID"
   groupadd -g "$PGID" moltbot 2>/dev/null || true
@@ -98,10 +65,8 @@ fi
 
 GROUP_NAME="$(getent group "$PGID" | cut -d: -f1 || echo "moltbot")"
 
-# Ensure user exists for PUID
 if ! getent passwd "$PUID" >/dev/null 2>&1; then
   log "Creating user with UID $PUID"
-  # Home is /config, do not create home dir (-M) because /config is a volume
   useradd -u "$PUID" -g "$GROUP_NAME" -d /config -s /bin/bash -M moltbot 2>/dev/null || true
 fi
 
@@ -173,15 +138,12 @@ export MOLTBOT_TOKEN="$FINAL_TOKEN"
 
 chown -R "$PUID:$PGID" "$MOLTBOT_STATE" "$MOLTBOT_WORKSPACE" /tmp/moltbot 2>/dev/null || true
 
-# State should be private
 chmod 700 "$MOLTBOT_STATE" 2>/dev/null || true
 find "$MOLTBOT_STATE" -type d -exec chmod 700 {} \; 2>/dev/null || true
 
-# Workspace can be readable (tighten if you want)
 chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
 find "$MOLTBOT_WORKSPACE" -type d -exec chmod 755 {} \; 2>/dev/null || true
 
-# Token file must be private
 if [ -f "$TOKEN_FILE" ]; then
   chown "$PUID:$PGID" "$TOKEN_FILE" 2>/dev/null || true
   chmod 600 "$TOKEN_FILE" 2>/dev/null || true
@@ -190,6 +152,10 @@ fi
 # ============================================================================
 # Config File Setup
 # ============================================================================
+# Behavior:
+# - If missing -> create default
+# - If invalid -> back it up, then create default
+# - If valid -> patch required bits (port/bind/token/workspace/allowInsecureAuth)
 
 write_default_config() {
   cat > "$CONFIG_PATH" <<EOF
@@ -221,15 +187,17 @@ if [ ! -f "$CONFIG_PATH" ]; then
   log "Creating default Moltbot configuration..."
   write_default_config
 else
-  if ! python3 -c "import json; json.load(open('$CONFIG_PATH'))" 2>/dev/null; then
-    log "WARNING: moltbot.json appears to be invalid JSON"
-    log "Backing up and recreating default configuration..."
-    mv "$CONFIG_PATH" "$CONFIG_PATH.backup.$(date +%s)"
-    write_default_config
-    log "Old config backed up with .backup suffix"
-  else
-    log "Ensuring config has required settings..."
-    python3 <<PYTHON
+  if command -v python3 >/dev/null 2>&1; then
+    if ! python3 -c "import json; json.load(open('$CONFIG_PATH'))" 2>/dev/null; then
+      log "WARNING: moltbot.json appears to be invalid JSON"
+      bad="$CONFIG_PATH.bad.$(date +%s)"
+      log "Backing up invalid config to: $bad"
+      mv "$CONFIG_PATH" "$bad"
+      log "Recreating default configuration..."
+      write_default_config
+    else
+      log "Ensuring config has required settings..."
+      python3 <<PYTHON
 import json, sys
 p = "$CONFIG_PATH"
 token = "$FINAL_TOKEN"
@@ -280,9 +248,11 @@ except Exception as e:
     sys.exit(0)
 PYTHON
 
-    # Python ran as root; restore ownership/perms
-    chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
-    chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+      chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
+      chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+    fi
+  else
+    log "WARNING: python3 not found; skipping JSON validation/patching for moltbot.json"
   fi
 fi
 
@@ -311,19 +281,23 @@ export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 # ============================================================================
 # Command Construction
 # ============================================================================
+# IMPORTANT:
+# - Gateway must call moltbot-real to avoid wrapper recursion/double-gosu.
+# - Non-gateway commands inside this script also use moltbot-real.
 
-if ! command -v moltbot >/dev/null 2>&1; then
+if [ ! -x /usr/local/bin/moltbot-real ]; then
   log "==================================================================="
-  log "❌ ERROR: moltbot binary not found"
+  log "❌ ERROR: /usr/local/bin/moltbot-real not found"
   log "==================================================================="
+  log "Your Dockerfile should move moltbot -> moltbot-real and install wrapper as moltbot."
   exit 1
 fi
 
-MOLTBOT_BIN="moltbot"
-log "moltbot binary located at: $(which moltbot)"
+MOLTBOT_REAL="/usr/local/bin/moltbot-real"
+log "moltbot binary: $MOLTBOT_REAL"
 
 if [ $# -eq 0 ] || [ "${1:-}" = "gateway" ]; then
-  CMD="$MOLTBOT_BIN gateway"
+  CMD="$MOLTBOT_REAL gateway"
 
   if [ -n "${MOLTBOT_PORT:-}" ]; then
     CMD="$CMD --port $MOLTBOT_PORT"
@@ -342,7 +316,7 @@ elif [ "${1:-}" = "shell" ]; then
   log "Starting interactive shell..."
   exec gosu "$PUID:$PGID" env HOME=/config /bin/bash
 else
-  CMD="$MOLTBOT_BIN $*"
+  CMD="$MOLTBOT_REAL $*"
 fi
 
 if [ -n "${MOLTBOT_CMD:-}" ]; then
@@ -364,7 +338,6 @@ if kill -0 "$APP_PID" 2>/dev/null; then
   UI_HOST="${MOLTBOT_HOST:-localhost}"
   UI_PORT="${MOLTBOT_PORT:-18789}"
 
-  # If bind is loopback, force localhost
   BIND_ADDR="${MOLTBOT_BIND:-lan}"
   if [ "$BIND_ADDR" = "loopback" ]; then
     UI_HOST="localhost"

@@ -49,12 +49,13 @@ RUN apt-get update && \
     gosu \
     tzdata \
     bash \
-    git \
     curl \
     ca-certificates \
     passwd \
     procps \
     chromium \
+    python3 \
+    openssl \
     && \
     rm -rf /var/lib/apt/lists/*
 
