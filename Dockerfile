@@ -33,6 +33,7 @@ RUN apt-get update && \
       python3-pip \
       python3-venv \
       python3-dev \
+      build-essential \
       openssl \
       git \
       jq \
@@ -44,10 +45,14 @@ RUN apt-get update && \
 
 # Install Python packages for automation & data processing
 RUN pip3 install --no-cache-dir \
-    requests beautifulsoup4 selenium playwright \
+    requests beautifulsoup4 selenium \
     pandas numpy pillow pyyaml python-dotenv \
     sqlalchemy psycopg2-binary redis \
-    paho-mqtt zeroconf pytz python-dateutil cryptography
+    paho-mqtt zeroconf pytz python-dateutil cryptography && \
+    # Clean up build dependencies to save space
+    apt-get remove -y build-essential && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------------
 # Install Moltbot from npm (using beta until @latest tag is updated)
