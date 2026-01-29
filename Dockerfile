@@ -56,7 +56,7 @@ RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper && \
     mv /usr/local/bin/clawdbot /usr/local/bin/moltbot-real && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/clawdbot && \
-    chmod 750 /usr/local/bin/moltbot-real
+    chmod 755 /usr/local/bin/moltbot-real
 
 # --------------------------------------------------------------------------
 # Metadata
