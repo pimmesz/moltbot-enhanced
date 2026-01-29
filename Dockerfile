@@ -56,8 +56,8 @@ RUN apt-get update && \
     chromium \
     python3 \
     openssl \
-    && \
-    rm -rf /var/lib/apt/lists/*
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy and install the built package from builder stage
 COPY --from=builder /build/moltbot-*.tgz /tmp/moltbot.tgz
