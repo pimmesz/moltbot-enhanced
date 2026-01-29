@@ -80,6 +80,8 @@ CONFIG_PATH="$MOLTBOT_STATE/moltbot.json"
 TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
 CRED_DIR="$MOLTBOT_STATE/credentials"
 
+# Set both for compatibility (package is still 'clawdbot' but rebranding to 'moltbot')
+export CLAWDBOT_STATE_DIR="$MOLTBOT_STATE"
 export MOLTBOT_STATE_DIR="$MOLTBOT_STATE"
 
 log "State dir: $MOLTBOT_STATE"
@@ -224,6 +226,7 @@ gosu "$PUID:$PGID" env \
   XDG_DATA_HOME=/config \
   XDG_CACHE_HOME=/config/.cache \
   XDG_RUNTIME_DIR=/tmp/moltbot \
+  CLAWDBOT_STATE_DIR=/config/.clawdbot \
   MOLTBOT_STATE_DIR=/config/.clawdbot \
   MOLTBOT_TOKEN="$FINAL_TOKEN" \
   PATH="/usr/local/bin:/usr/bin:/bin" \
