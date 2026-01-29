@@ -31,28 +31,13 @@ RUN apt-get update && \
       chromium \
       python3 \
       python3-pip \
-      python3-venv \
-      python3-dev \
-      build-essential \
       openssl \
       git \
       jq \
       sqlite3 \
-      postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /config /tmp/moltbot \
     && chmod 1777 /tmp /tmp/moltbot
-
-# Install Python packages for automation & data processing
-RUN pip3 install --no-cache-dir \
-    requests beautifulsoup4 \
-    pandas numpy pillow pyyaml python-dotenv \
-    sqlalchemy redis \
-    paho-mqtt zeroconf pytz python-dateutil cryptography && \
-    # Clean up build dependencies to save space
-    apt-get remove -y build-essential && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------------
 # Install Moltbot from npm (using beta until @latest tag is updated)
