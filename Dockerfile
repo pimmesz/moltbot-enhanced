@@ -77,7 +77,7 @@ RUN apt-get update && \
 COPY --from=builder /build/moltbot.tgz /tmp/moltbot.tgz
 
 RUN npm install -g /tmp/moltbot.tgz && \
-    moltbot --version && \
+    /usr/local/bin/moltbot --version && \
     rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
     rm -rf /root/.npm && \
