@@ -1,28 +1,25 @@
 #!/bin/bash
-
 # Moltbot Unraid Entrypoint (FIXED)
-# Key fixes:
-# - NO /root/.clawdbot or /root/clawd symlinks (prevents root-written state)
-# - NO watchdog that fights symptoms
-# - Only chown/chmod Moltbot-owned paths under /config
-# - Always run gateway as PUID:PGID with HOME=/config so state is consistent
+# Goals:
+# - Single source of truth for state: /config/.clawdbot (via HOME=/config)
+# - Never write state under /root (no symlinks)
+# - No watchdog loops; fix permissions deterministically at startup + after patch
+# - Run gateway as PUID:PGID with HOME=/config
 
-set -e
+set -euo pipefail
 
-log() {
-  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2
-}
+log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
 APP_PID=""
 
 cleanup() {
   log "Received shutdown signal, cleaning up..."
-  if [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2>/dev/null; then
+  if [ -n "${APP_PID:-}" ] && kill -0 "$APP_PID" 2>/dev/null; then
     log "Stopping Moltbot Gateway..."
     kill -TERM "$APP_PID" 2>/dev/null || true
 
-    timeout=30
-    while [ $timeout -gt 0 ] && kill -0 "$APP_PID" 2>/dev/null; do
+    local timeout=30
+    while [ "$timeout" -gt 0 ] && kill -0 "$APP_PID" 2>/dev/null; do
       sleep 1
       timeout=$((timeout - 1))
     done
@@ -42,7 +39,10 @@ trap cleanup TERM INT
 # Validate Environment
 # ============================================================================
 
-if [ -z "${PUID:-}" ] || [ -z "${PGID:-}" ]; then
+PUID="${PUID:-}"
+PGID="${PGID:-}"
+
+if [ -z "$PUID" ] || [ -z "$PGID" ]; then
   log "==================================================================="
   log "❌ ERROR: PUID and PGID environment variables are required"
   log "==================================================================="
@@ -55,13 +55,17 @@ log "Starting Moltbot with PUID=$PUID, PGID=$PGID"
 
 # ============================================================================
 # AI Provider Validation (non-fatal)
+# Supports OpenAI/Anthropic/OpenRouter/Gemini + OpenCode/Zen envs
 # ============================================================================
 
-if [ -z "${ANTHROPIC_API_KEY:-}" ] && \
-   [ -z "${OPENAI_API_KEY:-}" ] && \
-   [ -z "${OPENROUTER_API_KEY:-}" ] && \
-   [ -z "${GEMINI_API_KEY:-}" ] && \
-   [ -z "${OPENCODE_API_KEY:-}" ]; then
+has_any_key="no"
+for v in ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GEMINI_API_KEY OPENCODE_API_KEY ZEN_API_KEY OPENCODE_ZEN_API_KEY; do
+  if [ -n "${!v:-}" ]; then
+    has_any_key="yes"
+  fi
+done
+
+if [ "$has_any_key" = "no" ]; then
   log "WARNING: No AI provider API key detected!"
   log "The gateway will start, but AI features will not work."
   log "Please set at least one of:"
@@ -69,9 +73,17 @@ if [ -z "${ANTHROPIC_API_KEY:-}" ] && \
   log "  - OPENAI_API_KEY"
   log "  - OPENROUTER_API_KEY"
   log "  - GEMINI_API_KEY"
+  log "  - OPENCODE_API_KEY (or ZEN_API_KEY / OPENCODE_ZEN_API_KEY)"
   log ""
   log "Waiting 10 seconds before starting (Ctrl+C to cancel)..."
   sleep 10
+else
+  # Masked presence check (no leaks)
+  present_vars=""
+  for v in ANTHROPIC_API_KEY OPENAI_API_KEY OPENROUTER_API_KEY GEMINI_API_KEY OPENCODE_API_KEY ZEN_API_KEY OPENCODE_ZEN_API_KEY; do
+    if [ -n "${!v:-}" ]; then present_vars="${present_vars}${v} "; fi
+  done
+  log "AI provider key(s) detected: ${present_vars}"
 fi
 
 # ============================================================================
@@ -89,7 +101,7 @@ GROUP_NAME="$(getent group "$PGID" | cut -d: -f1 || echo "moltbot")"
 # Ensure user exists for PUID
 if ! getent passwd "$PUID" >/dev/null 2>&1; then
   log "Creating user with UID $PUID"
-  # Home is /config, no home dir creation (-M) because /config is a volume
+  # Home is /config, do not create home dir (-M) because /config is a volume
   useradd -u "$PUID" -g "$GROUP_NAME" -d /config -s /bin/bash -M moltbot 2>/dev/null || true
 fi
 
@@ -107,11 +119,10 @@ fi
 # State Directory Setup
 # ============================================================================
 
-# Moltbot CLI uses ~/.clawdbot internally.
-# We force HOME=/config for the gateway (and wrapper should do the same for CLI).
 MOLTBOT_STATE="/config/.clawdbot"
 MOLTBOT_WORKSPACE="/config/workspace"
 TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
+CONFIG_PATH="$MOLTBOT_STATE/moltbot.json"
 
 log "Initializing state directories..."
 log "State directory: $MOLTBOT_STATE"
@@ -120,7 +131,7 @@ log "Workspace: $MOLTBOT_WORKSPACE"
 mkdir -p "$MOLTBOT_STATE" "$MOLTBOT_WORKSPACE" /tmp/moltbot
 mkdir -p "$MOLTBOT_STATE/agents/main/sessions" "$MOLTBOT_STATE/agents/main/state"
 
-# Optional: keep /config/clawd for convenience
+# Optional convenience link inside /config
 if [ ! -L /config/clawd ]; then
   ln -sf "$MOLTBOT_WORKSPACE" /config/clawd 2>/dev/null || true
 fi
@@ -160,14 +171,13 @@ export MOLTBOT_TOKEN="$FINAL_TOKEN"
 # Ownership + Permissions (ONLY moltbot-owned paths)
 # ============================================================================
 
-# Ensure ownership before writing/patching config
 chown -R "$PUID:$PGID" "$MOLTBOT_STATE" "$MOLTBOT_WORKSPACE" /tmp/moltbot 2>/dev/null || true
 
 # State should be private
 chmod 700 "$MOLTBOT_STATE" 2>/dev/null || true
 find "$MOLTBOT_STATE" -type d -exec chmod 700 {} \; 2>/dev/null || true
 
-# Workspace can be readable (adjust if you want stricter)
+# Workspace can be readable (tighten if you want)
 chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
 find "$MOLTBOT_WORKSPACE" -type d -exec chmod 755 {} \; 2>/dev/null || true
 
@@ -180,8 +190,6 @@ fi
 # ============================================================================
 # Config File Setup
 # ============================================================================
-
-CONFIG_PATH="$MOLTBOT_STATE/moltbot.json"
 
 write_default_config() {
   cat > "$CONFIG_PATH" <<EOF
@@ -213,7 +221,6 @@ if [ ! -f "$CONFIG_PATH" ]; then
   log "Creating default Moltbot configuration..."
   write_default_config
 else
-  # Validate JSON; if invalid, back up and recreate
   if ! python3 -c "import json; json.load(open('$CONFIG_PATH'))" 2>/dev/null; then
     log "WARNING: moltbot.json appears to be invalid JSON"
     log "Backing up and recreating default configuration..."
@@ -221,11 +228,9 @@ else
     write_default_config
     log "Old config backed up with .backup suffix"
   else
-    # Patch in required bits without rewriting ownership as root
     log "Ensuring config has required settings..."
     python3 <<PYTHON
 import json, sys
-
 p = "$CONFIG_PATH"
 token = "$FINAL_TOKEN"
 port = ${MOLTBOT_PORT:-18789}
@@ -236,32 +241,28 @@ try:
         cfg = json.load(f)
 
     modified = False
-
     cfg.setdefault("gateway", {})
     cfg["gateway"].setdefault("auth", {})
     cfg["gateway"].setdefault("controlUi", {})
     cfg.setdefault("agents", {}).setdefault("defaults", {})
 
-    # Keep port/bind aligned with env
     if cfg["gateway"].get("port") != port:
         cfg["gateway"]["port"] = port
         modified = True
+
     if cfg["gateway"].get("bind") != bind:
         cfg["gateway"]["bind"] = bind
         modified = True
 
-    # Auth token
-    if cfg["gateway"]["auth"].get("token") != token or cfg["gateway"]["auth"].get("mode") != "token":
+    if cfg["gateway"]["auth"].get("mode") != "token" or cfg["gateway"]["auth"].get("token") != token:
         cfg["gateway"]["auth"]["mode"] = "token"
         cfg["gateway"]["auth"]["token"] = token
         modified = True
 
-    # Workspace default
     if cfg["agents"]["defaults"].get("workspace") != "/config/workspace":
         cfg["agents"]["defaults"]["workspace"] = "/config/workspace"
         modified = True
 
-    # allowInsecureAuth
     if cfg["gateway"]["controlUi"].get("allowInsecureAuth") is not True:
         cfg["gateway"]["controlUi"]["allowInsecureAuth"] = True
         modified = True
@@ -279,13 +280,12 @@ except Exception as e:
     sys.exit(0)
 PYTHON
 
-    # After Python writes (as root), fix ownership + perms back
+    # Python ran as root; restore ownership/perms
     chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
     chmod 600 "$CONFIG_PATH" 2>/dev/null || true
   fi
 fi
 
-# Verify non-root can read config
 if ! gosu "$PUID:$PGID" test -r "$CONFIG_PATH" 2>/dev/null; then
   log "❌ ERROR: Config exists but is not readable by UID $PUID"
   log "Fixing ownership/perms..."
@@ -328,7 +328,6 @@ if [ $# -eq 0 ] || [ "${1:-}" = "gateway" ]; then
   if [ -n "${MOLTBOT_PORT:-}" ]; then
     CMD="$CMD --port $MOLTBOT_PORT"
   fi
-
   if [ -n "${MOLTBOT_BIND:-}" ]; then
     CMD="$CMD --bind $MOLTBOT_BIND"
   fi
@@ -336,7 +335,6 @@ if [ $# -eq 0 ] || [ "${1:-}" = "gateway" ]; then
   if [ "${1:-}" = "gateway" ]; then
     shift
   fi
-
   if [ $# -gt 0 ]; then
     CMD="$CMD $*"
   fi
@@ -358,11 +356,33 @@ fi
 
 log "Executing: $CMD"
 
-# IMPORTANT: set HOME=/config for the child process explicitly
 gosu "$PUID:$PGID" env HOME=/config sh -c "$CMD" &
 APP_PID=$!
 
-# Wait a moment, then show welcome message
 sleep 3
 if kill -0 "$APP_PID" 2>/dev/null; then
-  BIND_ADDR="${MOLTBOT_BIND:-
+  UI_HOST="${MOLTBOT_HOST:-localhost}"
+  UI_PORT="${MOLTBOT_PORT:-18789}"
+
+  # If bind is loopback, force localhost
+  BIND_ADDR="${MOLTBOT_BIND:-lan}"
+  if [ "$BIND_ADDR" = "loopback" ]; then
+    UI_HOST="localhost"
+  fi
+
+  log "==================================================================="
+  log "✅ Moltbot Gateway Started"
+  log "==================================================================="
+  log "Web UI:"
+  log "  http://${UI_HOST}:${UI_PORT}/?token=${FINAL_TOKEN}"
+  log "Gateway Token:"
+  log "  ${FINAL_TOKEN}"
+  log "Config:"
+  log "  ${CONFIG_PATH}"
+  log "==================================================================="
+fi
+
+wait "$APP_PID"
+exit_code=$?
+log "Application exited with code $exit_code"
+exit "$exit_code"
