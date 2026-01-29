@@ -10,7 +10,7 @@ env:
   REGISTRY: docker.io
   # Image name: username/repository-name
   # Uses DOCKER_HUB_USERNAME secret or falls back to repo owner
-  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME || github.repository_owner }}/moltbot-unraid
+  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME || github.repository_owner }}/moltbot-enhanced
 
 jobs:
   build-and-push:
