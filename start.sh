@@ -1,12 +1,12 @@
 #!/bin/bash
-# Moltbot Unraid Entrypoint (FINAL, FIXED)
+# Moltbot Unraid Entrypoint (stable)
 #
-# Rules:
+# Goals:
 # - /config/.clawdbot is the single source of truth
-# - moltbot.json is CREATED once, never patched
-# - Moltbot owns its config after first boot
-# - No CLI flags that override config
-# - PUID/PGID handled here, nowhere else
+# - Never write state under /root
+# - Create moltbot.json ONCE (if missing/invalid). Never patch it afterwards.
+# - Run gateway as PUID:PGID with HOME=/config (so plugins/channels persist)
+# - Keep permissions deterministic without chowning all of /config
 
 set -euo pipefail
 
@@ -17,7 +17,7 @@ APP_PID=""
 cleanup() {
   log "Received shutdown signal"
   if [ -n "${APP_PID:-}" ] && kill -0 "$APP_PID" 2>/dev/null; then
-    log "Stopping Moltbot Gateway..."
+    log "Stopping Moltbot..."
     kill -TERM "$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
   fi
@@ -26,9 +26,9 @@ cleanup() {
 }
 trap cleanup TERM INT
 
-# ============================================================================
-# Validate environment
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Validate env
+# ---------------------------------------------------------------------------
 
 PUID="${PUID:-}"
 PGID="${PGID:-}"
@@ -40,23 +40,22 @@ fi
 
 log "Starting Moltbot with PUID=$PUID PGID=$PGID"
 
-# ============================================================================
-# User / group setup
-# ============================================================================
+# ---------------------------------------------------------------------------
+# User/group
+# ---------------------------------------------------------------------------
 
 if ! getent group "$PGID" >/dev/null 2>&1; then
   groupadd -g "$PGID" moltbot 2>/dev/null || true
 fi
-
-GROUP_NAME="$(getent group "$PGID" | cut -d: -f1)"
+GROUP_NAME="$(getent group "$PGID" | cut -d: -f1 || echo "moltbot")"
 
 if ! getent passwd "$PUID" >/dev/null 2>&1; then
   useradd -u "$PUID" -g "$GROUP_NAME" -d /config -s /bin/bash -M moltbot 2>/dev/null || true
 fi
 
-# ============================================================================
-# Timezone
-# ============================================================================
+# ---------------------------------------------------------------------------
+# TZ
+# ---------------------------------------------------------------------------
 
 if [ -n "${TZ:-}" ] && [ -f "/usr/share/zoneinfo/$TZ" ]; then
   log "Setting timezone to $TZ"
@@ -64,15 +63,16 @@ if [ -n "${TZ:-}" ] && [ -f "/usr/share/zoneinfo/$TZ" ]; then
   echo "$TZ" > /etc/timezone
 fi
 
-# ============================================================================
-# Paths
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Pin paths
+# ---------------------------------------------------------------------------
 
 export HOME=/config
 export XDG_CONFIG_HOME=/config
 export XDG_DATA_HOME=/config
 export XDG_CACHE_HOME=/config/.cache
 export XDG_RUNTIME_DIR=/tmp/moltbot
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 
 MOLTBOT_STATE="/config/.clawdbot"
 MOLTBOT_WORKSPACE="/config/workspace"
@@ -80,7 +80,6 @@ CONFIG_PATH="$MOLTBOT_STATE/moltbot.json"
 TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
 
 export MOLTBOT_STATE_DIR="$MOLTBOT_STATE"
-export MOLTBOT_CONFIG_PATH="$CONFIG_PATH"
 
 log "State dir: $MOLTBOT_STATE"
 log "Workspace: $MOLTBOT_WORKSPACE"
@@ -91,16 +90,25 @@ mkdir -p \
   "$XDG_CACHE_HOME" \
   "$XDG_RUNTIME_DIR"
 
-# ============================================================================
-# Permissions
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Permissions (DON’T chown all of /config)
+# ---------------------------------------------------------------------------
 
-chown -R "$PUID:$PGID" /config /tmp/moltbot 2>/dev/null || true
-chmod 700 "$MOLTBOT_STATE" || true
+chown -R "$PUID:$PGID" \
+  "$MOLTBOT_STATE" \
+  "$MOLTBOT_WORKSPACE" \
+  "$XDG_CACHE_HOME" \
+  "$XDG_RUNTIME_DIR" \
+  2>/dev/null || true
 
-# ============================================================================
-# Gateway token (persistent)
-# ============================================================================
+chmod 700 "$MOLTBOT_STATE" 2>/dev/null || true
+chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
+chmod 700 "$XDG_CACHE_HOME" 2>/dev/null || true
+chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Token (persistent)
+# ---------------------------------------------------------------------------
 
 if [ -n "${MOLTBOT_TOKEN:-}" ]; then
   FINAL_TOKEN="$MOLTBOT_TOKEN"
@@ -110,15 +118,15 @@ elif [ -f "$TOKEN_FILE" ]; then
 else
   FINAL_TOKEN="$(openssl rand -hex 32)"
   echo "$FINAL_TOKEN" > "$TOKEN_FILE"
-  chmod 600 "$TOKEN_FILE"
+  chown "$PUID:$PGID" "$TOKEN_FILE" 2>/dev/null || true
+  chmod 600 "$TOKEN_FILE" 2>/dev/null || true
   log "Generated new gateway token"
 fi
-
 export MOLTBOT_TOKEN="$FINAL_TOKEN"
 
-# ============================================================================
-# Config creation (ONCE)
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Create moltbot.json only if missing/invalid
+# ---------------------------------------------------------------------------
 
 write_default_config() {
   cat > "$CONFIG_PATH" <<EOF
@@ -142,40 +150,50 @@ write_default_config() {
   }
 }
 EOF
-  chown "$PUID:$PGID" "$CONFIG_PATH"
-  chmod 600 "$CONFIG_PATH"
+  chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
+  chmod 600 "$CONFIG_PATH" 2>/dev/null || true
 }
 
 if [ ! -f "$CONFIG_PATH" ]; then
   log "Creating initial moltbot.json"
   write_default_config
 else
-  # Validate JSON only; never rewrite
   if command -v python3 >/dev/null 2>&1; then
     if ! python3 -c "import json; json.load(open('$CONFIG_PATH'))" 2>/dev/null; then
       bad="$CONFIG_PATH.bad.$(date +%s)"
-      log "Invalid config detected, backing up to $bad"
+      log "Invalid moltbot.json detected, backing up to $bad"
       mv "$CONFIG_PATH" "$bad"
       write_default_config
     else
       log "Existing moltbot.json detected – leaving untouched"
     fi
+  else
+    log "WARNING: python3 not found; skipping moltbot.json validation"
   fi
 fi
 
-# ============================================================================
-# Launch Moltbot
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Launch Moltbot (via wrapper so HOME is ALWAYS /config)
+# ---------------------------------------------------------------------------
 
-if [ ! -x /usr/local/bin/moltbot-real ]; then
-  log "❌ ERROR: moltbot-real not found"
+if [ ! -x /usr/local/bin/moltbot ]; then
+  log "❌ ERROR: /usr/local/bin/moltbot not found (wrapper missing)"
   exit 1
 fi
 
-CMD="/usr/local/bin/moltbot-real gateway"
+CMD="/usr/local/bin/moltbot gateway"
 log "Executing: $CMD"
 
-gosu "$PUID:$PGID" env HOME=/config sh -c "$CMD" &
+gosu "$PUID:$PGID" env \
+  HOME=/config \
+  XDG_CONFIG_HOME=/config \
+  XDG_DATA_HOME=/config \
+  XDG_CACHE_HOME=/config/.cache \
+  XDG_RUNTIME_DIR=/tmp/moltbot \
+  MOLTBOT_STATE_DIR=/config/.clawdbot \
+  MOLTBOT_TOKEN="$FINAL_TOKEN" \
+  PATH="/usr/local/bin:/usr/bin:/bin" \
+  sh -lc "$CMD" &
 APP_PID=$!
 
 sleep 3

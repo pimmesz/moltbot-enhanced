@@ -1,45 +1,45 @@
 #!/bin/bash
-# Wrapper for moltbot binary
-# Forces state/config to /config (persistent) even when "docker exec" runs as root
+# Moltbot wrapper
+# Absolute rule:
+# - Moltbot MUST always run with HOME=/config
+# - No execution path may fall back to /root
+
 set -euo pipefail
 
-cleanup() {
-  echo "[moltbot-wrapper] Received shutdown signal, forwarding to Moltbot..."
-  # With exec, Moltbot is PID 1, so just exit and let Docker deliver the signal.
-  # (This trap is mostly here for logs / clarity.)
-  exit 0
-}
+log() { echo "[moltbot-wrapper] $*" >&2; }
+
+cleanup() { log "Received shutdown signal"; exit 0; }
 trap cleanup SIGTERM SIGINT SIGHUP
 
-# Source env if available
+# Optional env files first (so they can set MOLTBOT_PORT etc.)
 [ -f /etc/environment ] && . /etc/environment || true
 [ -f /config/.env ] && . /config/.env || true
 
-# ALWAYS pin Moltbot state to /config (so "docker exec" doesn't use /root)
+# Hard-pin environment (NO exceptions)
 export HOME=/config
 export XDG_CONFIG_HOME=/config
 export XDG_DATA_HOME=/config
 export XDG_CACHE_HOME=/config/.cache
-
-# If Moltbot respects a state dir env var, set it too (harmless if ignored)
+export XDG_RUNTIME_DIR=/tmp/moltbot
 export MOLTBOT_STATE_DIR=/config/.clawdbot
-
-# Defaults
-export MOLTBOT_PORT="${MOLTBOT_PORT:-18789}"
-export MOLTBOT_BIND="${MOLTBOT_BIND:-lan}"
 export NODE_ENV="${NODE_ENV:-production}"
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 
-# Browser knobs (only if you actually need browser automation)
-export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-export BROWSER_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
+# Ensure required dirs exist
+mkdir -p /config/.clawdbot /config/workspace /config/.cache /tmp/moltbot
 
-# Ensure persistent dirs exist (matches your start.sh)
-mkdir -p /config/.clawdbot /config/workspace /config/.cache
-
-# Default command: gateway
+# Default command
 if [ "$#" -eq 0 ]; then
   set -- gateway
 fi
 
-# Run Moltbot as PID 1 (important for reliable restarts + signal handling)
-exec /usr/local/bin/moltbot-real "$@"
+# Always run with pinned env
+exec env \
+  HOME=/config \
+  XDG_CONFIG_HOME=/config \
+  XDG_DATA_HOME=/config \
+  XDG_CACHE_HOME=/config/.cache \
+  XDG_RUNTIME_DIR=/tmp/moltbot \
+  MOLTBOT_STATE_DIR=/config/.clawdbot \
+  PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}" \
+  /usr/local/bin/moltbot-real "$@"

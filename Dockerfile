@@ -1,115 +1,144 @@
-# Multi-stage build for better caching
-# Stage 1: Build moltbot from source
+# ============================================================================
+# Stage 1: Build Moltbot from source
+# ============================================================================
+
 FROM node:24-slim AS builder
 
 WORKDIR /build
 
-# Install build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    git \
-    python3 \
-    make \
-    g++ \
-    ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+      git \
+      python3 \
+      make \
+      g++ \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
 RUN npm install -g pnpm@latest
 
-# Clone and build moltbot
-# Note: npm package (moltbot@latest) is incomplete (no binary), must build from source
+# Clone Moltbot source
 RUN git clone --depth 1 https://github.com/moltbot/moltbot.git .
 
-# Install dependencies with cache mount for faster rebuilds
+# Install deps with pnpm cache
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
-# Build and package
+# Build Moltbot
 RUN pnpm build && \
     pnpm ui:build && \
     pnpm pack
 
-# Stage 2: Runtime image
+
+# ============================================================================
+# Stage 2: Runtime image (Unraid-friendly)
+# ============================================================================
+
 FROM node:24-slim
 
-# Set environment variables for Unraid compatibility
-# Unraid uses 99:100 (nobody:users) as default for Docker containers
+# --------------------------------------------------------------------------
+# Unraid defaults
+# --------------------------------------------------------------------------
+
 ENV PUID=99
 ENV PGID=100
 ENV TZ=UTC
 
-# Gateway configuration defaults
 ENV MOLTBOT_PORT=18789
 ENV MOLTBOT_BIND=lan
 
-# Install runtime dependencies
+# --------------------------------------------------------------------------
+# Runtime dependencies
+# --------------------------------------------------------------------------
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    gosu \
-    tzdata \
-    bash \
-    curl \
-    ca-certificates \
-    passwd \
-    procps \
-    chromium \
-    python3 \
-    openssl \
-    git \
+      gosu \
+      tzdata \
+      bash \
+      curl \
+      ca-certificates \
+      passwd \
+      procps \
+      chromium \
+      python3 \
+      openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install the built package from builder stage
+# --------------------------------------------------------------------------
+# Install Moltbot package
+# --------------------------------------------------------------------------
+
 COPY --from=builder /build/moltbot-*.tgz /tmp/moltbot.tgz
 
 RUN npm install -g /tmp/moltbot.tgz && \
     rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
     rm -rf /root/.npm && \
-    # Verify installation succeeded
-    which moltbot || (echo "ERROR: moltbot binary not found" && exit 1) && \
-    moltbot --version || (echo "ERROR: moltbot command failed" && exit 1)
+    command -v moltbot >/dev/null
+
+# --------------------------------------------------------------------------
+# Filesystem layout
+# --------------------------------------------------------------------------
 
 WORKDIR /
 
-# Create directories
-# /config is the single persistent volume mount point
-# /tmp/moltbot is for transient logs (will use tmpfs)
 RUN mkdir -p /config /tmp/moltbot && \
-    chmod 1777 /tmp
+    chmod 1777 /tmp /tmp/moltbot
 
-# Copy entrypoint, health check, and wrapper scripts
+# --------------------------------------------------------------------------
+# Install entrypoint + wrapper
+# --------------------------------------------------------------------------
+
 COPY start.sh /start.sh
-COPY healthcheck.sh /healthcheck.sh
 COPY moltbot-wrapper.sh /usr/local/bin/moltbot-wrapper
-RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper
+COPY healthcheck.sh /healthcheck.sh
 
-# Replace moltbot binary with wrapper to ensure correct user for all commands
-RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
-    ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
+RUN chmod +x \
+      /start.sh \
+      /healthcheck.sh \
+      /usr/local/bin/moltbot-wrapper
 
-# Metadata labels for Docker Hub
+# --------------------------------------------------------------------------
+# Enforce wrapper as the ONLY Moltbot entrypoint
+# --------------------------------------------------------------------------
+
+# Rename real binary
+RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real
+
+# Wrapper becomes the public command
+RUN ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
+
+# Optional hardening: make real binary non-public
+RUN chmod 750 /usr/local/bin/moltbot-real
+
+# --------------------------------------------------------------------------
+# Metadata
+# --------------------------------------------------------------------------
+
 LABEL maintainer="pimmesz"
 LABEL org.opencontainers.image.title="Moltbot Unraid"
-LABEL org.opencontainers.image.description="Moltbot AI agent gateway for Unraid - connects AI to messaging platforms"
+LABEL org.opencontainers.image.description="Moltbot AI agent gateway for Unraid"
 LABEL org.opencontainers.image.authors="pimmesz"
-LABEL org.opencontainers.image.url="https://github.com/pimmesz/moltbot-unraid"
 LABEL org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid"
-LABEL org.opencontainers.image.documentation="https://github.com/pimmesz/moltbot-unraid/blob/main/README.md"
 
-# Expose Gateway WebSocket port
+# --------------------------------------------------------------------------
+# Networking & persistence
+# --------------------------------------------------------------------------
+
 EXPOSE 18789
-
-# Declare volume for persistent data
 VOLUME ["/config"]
 
-# Health check using dedicated script
+# --------------------------------------------------------------------------
+# Healthcheck (runs via wrapper environment)
+# --------------------------------------------------------------------------
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD /healthcheck.sh
+    CMD HOME=/config /healthcheck.sh
 
-# Use start.sh as entrypoint for PUID/PGID handling
+# --------------------------------------------------------------------------
+# Entrypoint & default command
+# --------------------------------------------------------------------------
+
 ENTRYPOINT ["/start.sh"]
-
-# Default command runs the gateway
-# Can be overridden with: docker run ... moltbot-unraid <custom-command>
 CMD ["gateway"]
