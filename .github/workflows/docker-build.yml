@@ -51,8 +51,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ steps.version.outputs.version }}
-            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
+            type=sha,prefix=,format=short,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
