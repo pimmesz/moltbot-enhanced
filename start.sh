@@ -77,6 +77,7 @@ export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 MOLTBOT_STATE="/config/.clawdbot"
 MOLTBOT_WORKSPACE="/config/workspace"
 CONFIG_PATH="$MOLTBOT_STATE/moltbot.json"
+CLAWDBOT_CONFIG_PATH="$MOLTBOT_STATE/clawdbot.json"
 TOKEN_FILE="$MOLTBOT_STATE/.moltbot_token"
 CRED_DIR="$MOLTBOT_STATE/credentials"
 
@@ -207,6 +208,24 @@ with open('$CONFIG_PATH', 'w') as f:
     log "WARNING: python3 not found; skipping moltbot.json validation"
   fi
 fi
+
+# ---------------------------------------------------------------------------
+# Symlinks for compatibility (clawdbot may look in various locations)
+# ---------------------------------------------------------------------------
+
+# Symlink clawdbot.json -> moltbot.json in state dir
+if [ -f "$CONFIG_PATH" ] && [ ! -e "$CLAWDBOT_CONFIG_PATH" ]; then
+  ln -sf moltbot.json "$CLAWDBOT_CONFIG_PATH"
+  log "Created symlink: clawdbot.json -> moltbot.json"
+fi
+
+# XDG config directories (clawdbot might look here with XDG_CONFIG_HOME=/config)
+for dir in /config/clawdbot /config/moltbot; do
+  if [ ! -e "$dir" ]; then
+    ln -sf .clawdbot "$dir"
+    log "Created symlink: $dir -> .clawdbot"
+  fi
+done
 
 # ---------------------------------------------------------------------------
 # Launch Moltbot (via wrapper so HOME is ALWAYS /config)
