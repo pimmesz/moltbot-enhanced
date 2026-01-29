@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# Set permissive umask so moltbot can read/write all files it creates
+umask 0002
+
 log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
 APP_PID=""
@@ -98,6 +101,7 @@ mkdir -p \
 # IMPORTANT: docker exec as root may create/modify files -> we correct on boot.
 # ---------------------------------------------------------------------------
 
+# Fix ownership recursively for all state directories
 chown -R "$PUID:$PGID" \
   "$MOLTBOT_STATE" \
   "$MOLTBOT_WORKSPACE" \
@@ -105,27 +109,17 @@ chown -R "$PUID:$PGID" \
   "$XDG_RUNTIME_DIR" \
   2>/dev/null || true
 
-chmod 755 "$MOLTBOT_STATE" 2>/dev/null || true
-chmod 700 "$CRED_DIR" 2>/dev/null || true
-chmod 755 "$MOLTBOT_WORKSPACE" 2>/dev/null || true
-chmod 755 "$XDG_CACHE_HOME" 2>/dev/null || true
-chmod 755 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+# Make all directories group-writable (775 = rwxrwxr-x)
+find "$MOLTBOT_STATE" -type d -exec chmod 775 {} \; 2>/dev/null || true
+chmod 775 "$MOLTBOT_WORKSPACE" "$XDG_CACHE_HOME" "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
-# If config/token already exist, force them back to runtime ownership + perms
-# (prevents EACCES loops after docker exec / root touching files)
-if [ -f "$CONFIG_PATH" ]; then
-  chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
-  chmod 644 "$CONFIG_PATH" 2>/dev/null || true
-fi
-if [ -f "$TOKEN_FILE" ]; then
-  chown "$PUID:$PGID" "$TOKEN_FILE" 2>/dev/null || true
-  chmod 600 "$TOKEN_FILE" 2>/dev/null || true
-fi
+# Make all files group-writable (664 = rw-rw-r--)
+find "$MOLTBOT_STATE" -type f -exec chmod 664 {} \; 2>/dev/null || true
 
-# Ensure all files in state dir are readable by the moltbot user
-find "$MOLTBOT_STATE" -type f -exec chown "$PUID:$PGID" {} \; 2>/dev/null || true
-find "$MOLTBOT_STATE" -type d -exec chmod 755 {} \; 2>/dev/null || true
-find "$MOLTBOT_STATE" -type f -name "*.json" -exec chmod 644 {} \; 2>/dev/null || true
+# Credentials dir stays more restrictive
+chmod 770 "$CRED_DIR" 2>/dev/null || true
+
+log "Fixed permissions on state directories"
 
 # ---------------------------------------------------------------------------
 # Token (persistent)
@@ -140,7 +134,7 @@ else
   FINAL_TOKEN="$(openssl rand -hex 32)"
   echo "$FINAL_TOKEN" > "$TOKEN_FILE"
   chown "$PUID:$PGID" "$TOKEN_FILE" 2>/dev/null || true
-  chmod 600 "$TOKEN_FILE" 2>/dev/null || true
+  chmod 660 "$TOKEN_FILE" 2>/dev/null || true
   log "Generated new gateway token"
 fi
 export MOLTBOT_TOKEN="$FINAL_TOKEN"
@@ -172,7 +166,7 @@ write_default_config() {
 }
 EOF
   chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
-  chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+  chmod 664 "$CONFIG_PATH" 2>/dev/null || true
 }
 
 if [ ! -f "$CONFIG_PATH" ]; then
@@ -202,7 +196,7 @@ with open('$CONFIG_PATH', 'w') as f:
     json.dump(config, f, indent=2)
 "
         chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
-        chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+        chmod 664 "$CONFIG_PATH" 2>/dev/null || true
       else
         log "Existing moltbot.json detected – leaving untouched"
       fi

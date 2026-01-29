@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Permissive umask so files created by moltbot are group-writable
+umask 0002
+
 log() { echo "[moltbot-wrapper] $*" >&2; }
 
 cleanup() { log "Received shutdown signal"; exit 0; }
