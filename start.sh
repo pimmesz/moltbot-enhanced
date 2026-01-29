@@ -172,7 +172,7 @@ if [ ! -x /usr/local/bin/moltbot-real ]; then
   exit 1
 fi
 
-CMD="/usr/local/bin/moltbot-real gateway --config $MOLTBOT_CONFIG_PATH"
+CMD="/usr/local/bin/moltbot-real gateway"
 log "Executing: $CMD"
 
 gosu "$PUID:$PGID" env HOME=/config sh -c "$CMD" &
