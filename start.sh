@@ -57,8 +57,11 @@ log "Starting Moltbot with PUID=$PUID, PGID=$PGID"
 # AI Provider Validation (non-fatal)
 # ============================================================================
 
-if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${OPENAI_API_KEY:-}" ] && \
-   [ -z "${OPENROUTER_API_KEY:-}" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && \
+   [ -z "${OPENAI_API_KEY:-}" ] && \
+   [ -z "${OPENROUTER_API_KEY:-}" ] && \
+   [ -z "${GEMINI_API_KEY:-}" ] && \
+   [ -z "${OPENCODE_API_KEY:-}" ]; then
   log "WARNING: No AI provider API key detected!"
   log "The gateway will start, but AI features will not work."
   log "Please set at least one of:"
