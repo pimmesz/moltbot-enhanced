@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: moltbot-unraid:local
+    image: moltbot-enhanced:local
     container_name: moltbot
     restart: unless-stopped
     

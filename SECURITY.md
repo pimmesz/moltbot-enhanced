@@ -68,7 +68,7 @@ Ensure:
 ## Security Updates
 
 - Monitor the [Moltbot releases](https://github.com/moltbot/moltbot/releases) for security updates
-- Update the container regularly: `docker pull pimmesz/moltbot-unraid:latest`
+- Update the container regularly: `docker pull pimmesz/moltbot-enhanced:latest`
 - Subscribe to security advisories
 
 ## Scope

@@ -1,7 +1,7 @@
 # Moltbot Unraid
 
-[![Docker Pulls](https://img.shields.io/docker/pulls/pimmesz/moltbot-unraid)](https://hub.docker.com/r/pimmesz/moltbot-unraid)
-[![GitHub](https://img.shields.io/github/license/pimmesz/moltbot-unraid)](https://github.com/pimmesz/moltbot-unraid)
+[![Docker Pulls](https://img.shields.io/docker/pulls/pimmesz/moltbot-enhanced)](https://hub.docker.com/r/pimmesz/moltbot-enhanced)
+[![GitHub](https://img.shields.io/github/license/pimmesz/moltbot-enhanced)](https://github.com/pimmesz/moltbot-enhanced)
 
 Moltbot AI agent gateway for Unraid servers. Connect AI to messaging platforms like WhatsApp, Telegram, Discord, Slack, and more.
 
@@ -74,9 +74,9 @@ docker exec -it moltbot moltbot onboard
 3. Toggle **Advanced View**
 4. Set **Template repositories** to:
    ```
-   https://raw.githubusercontent.com/pimmesz/moltbot-unraid/main/moltbot-unraid.xml
+   https://raw.githubusercontent.com/pimmesz/moltbot-enhanced/main/moltbot-enhanced.xml
    ```
-5. Search for "moltbot" and select **moltbot-unraid**
+5. Search for "moltbot" and select **moltbot-enhanced**
 6. Configure settings (API keys, timezone, etc.)
 7. Click **Apply**
 
@@ -87,7 +87,7 @@ The template automatically configures:
 
 After installation:
 ```bash
-docker exec -it moltbot-unraid moltbot onboard
+docker exec -it moltbot-enhanced moltbot onboard
 ```
 
 ### Docker Compose
@@ -95,7 +95,7 @@ docker exec -it moltbot-unraid moltbot onboard
 ```yaml
 services:
   moltbot:
-    image: pimmesz/moltbot-unraid:latest
+    image: pimmesz/moltbot-enhanced:latest
     container_name: moltbot
     restart: unless-stopped
     ports:
@@ -120,7 +120,7 @@ docker run -d \
   -e PGID=100 \
   -e TZ=America/New_York \
   -e ANTHROPIC_API_KEY=your-key-here \
-  pimmesz/moltbot-unraid:latest
+  pimmesz/moltbot-enhanced:latest
 ```
 
 ## Environment Variables
@@ -204,7 +204,7 @@ docker exec moltbot moltbot status
 ## Unraid Template
 
 ```
-Repository: pimmesz/moltbot-unraid:latest
+Repository: pimmesz/moltbot-enhanced:latest
 Network: Bridge
 Port: 18789
 Volume: /mnt/cache/appdata/moltbot -> /config
@@ -238,8 +238,8 @@ docker start moltbot
 
 ## Links
 
-- [Docker Hub](https://hub.docker.com/r/pimmesz/moltbot-unraid)
-- [GitHub](https://github.com/pimmesz/moltbot-unraid)
+- [Docker Hub](https://hub.docker.com/r/pimmesz/moltbot-enhanced)
+- [GitHub](https://github.com/pimmesz/moltbot-enhanced)
 - [Moltbot Docs](https://github.com/moltbot/moltbot)
 
 ## License

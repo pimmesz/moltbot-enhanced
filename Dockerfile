@@ -68,7 +68,7 @@ LABEL maintainer="pimmesz" \
       org.opencontainers.image.title="Moltbot Unraid" \
       org.opencontainers.image.description="Moltbot AI agent gateway for Unraid" \
       org.opencontainers.image.authors="pimmesz" \
-      org.opencontainers.image.source="https://github.com/pimmesz/moltbot-unraid"
+      org.opencontainers.image.source="https://github.com/pimmesz/moltbot-enhanced"
 
 EXPOSE 18789
 VOLUME ["/config"]

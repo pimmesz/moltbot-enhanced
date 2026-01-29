@@ -1,11 +1,11 @@
 {
-  "name": "moltbot-unraid",
+  "name": "moltbot-enhanced",
   "version": "1.0.0",
   "description": "Moltbot AI agent gateway for Unraid servers",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/pimmesz/moltbot-unraid"
+    "url": "https://github.com/pimmesz/moltbot-enhanced"
   },
   "keywords": [
     "moltbot",
