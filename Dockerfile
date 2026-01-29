@@ -29,6 +29,7 @@ RUN apt-get update && \
       chromium \
       python3 \
       openssl \
+      git \
     && rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------------
