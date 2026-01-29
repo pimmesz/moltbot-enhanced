@@ -77,12 +77,22 @@ RUN apt-get update && \
 COPY --from=builder /build/moltbot.tgz /tmp/moltbot.tgz
 
 RUN npm install -g /tmp/moltbot.tgz && \
-    echo "=== Checking npm global installation ===" && \
-    npm list -g --depth=0 && \
-    echo "=== Contents of /usr/local/bin ===" && \
-    ls -la /usr/local/bin/ && \
-    echo "=== Contents of npm global lib ===" && \
-    ls -la /usr/local/lib/node_modules/ && \
+    echo "=== Checking moltbot package structure ===" && \
+    ls -la /usr/local/lib/node_modules/moltbot/ && \
+    echo "=== Checking moltbot bin directory ===" && \
+    ls -la /usr/local/lib/node_modules/moltbot/bin/ 2>/dev/null || echo "No bin directory" && \
+    echo "=== Checking moltbot dist directory ===" && \
+    ls -la /usr/local/lib/node_modules/moltbot/dist/ 2>/dev/null || echo "No dist directory" && \
+    echo "=== Creating manual symlink ===" && \
+    if [ -f /usr/local/lib/node_modules/moltbot/bin/moltbot.js ]; then \
+      ln -sf /usr/local/lib/node_modules/moltbot/bin/moltbot.js /usr/local/bin/moltbot; \
+    elif [ -f /usr/local/lib/node_modules/moltbot/dist/cli.js ]; then \
+      ln -sf /usr/local/lib/node_modules/moltbot/dist/cli.js /usr/local/bin/moltbot; \
+    else \
+      echo "ERROR: Cannot find moltbot binary" && exit 1; \
+    fi && \
+    chmod +x /usr/local/bin/moltbot && \
+    moltbot --version && \
     rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
     rm -rf /root/.npm
