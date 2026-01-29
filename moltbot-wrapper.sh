@@ -4,12 +4,9 @@
 set -euo pipefail
 
 cleanup() {
-  echo "[moltbot-wrapper] Received shutdown signal, stopping gracefully..."
-  if [ -n "${MOLTBOT_PID:-}" ]; then
-    kill -TERM "$MOLTBOT_PID" 2>/dev/null || true
-    wait "$MOLTBOT_PID" 2>/dev/null || true
-  fi
-  echo "[moltbot-wrapper] Shutdown complete"
+  echo "[moltbot-wrapper] Received shutdown signal, forwarding to Moltbot..."
+  # With exec, Moltbot is PID 1, so just exit and let Docker deliver the signal.
+  # (This trap is mostly here for logs / clarity.)
   exit 0
 }
 trap cleanup SIGTERM SIGINT SIGHUP
@@ -39,12 +36,10 @@ export BROWSER_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
 # Ensure persistent dirs exist (matches your start.sh)
 mkdir -p /config/.clawdbot /config/workspace /config/.cache
 
-# Run real moltbot
-/usr/local/bin/moltbot-real "$@" &
-MOLTBOT_PID=$!
+# Default command: gateway
+if [ "$#" -eq 0 ]; then
+  set -- gateway
+fi
 
-wait "$MOLTBOT_PID"
-EXIT_CODE=$?
-
-echo "[moltbot-wrapper] Moltbot exited with code $EXIT_CODE"
-exit "$EXIT_CODE"
+# Run Moltbot as PID 1 (important for reliable restarts + signal handling)
+exec /usr/local/bin/moltbot-real "$@"
