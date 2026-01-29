@@ -219,6 +219,19 @@ if [ ! -e "/config/clawdbot" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# FINAL permission fix (after all config files are created/modified)
+# ---------------------------------------------------------------------------
+log "Final permission fix before launch..."
+chown -R "$PUID:$PGID" "$MOLTBOT_STATE" 2>/dev/null || true
+find "$MOLTBOT_STATE" -type d -exec chmod 775 {} \; 2>/dev/null || true
+find "$MOLTBOT_STATE" -type f -exec chmod 664 {} \; 2>/dev/null || true
+
+# Verify config file permissions
+if [ -f "$CONFIG_PATH" ]; then
+  ls -la "$CONFIG_PATH" >&2
+fi
+
+# ---------------------------------------------------------------------------
 # Launch Moltbot (via wrapper so HOME is ALWAYS /config)
 # ---------------------------------------------------------------------------
 
@@ -239,7 +252,7 @@ gosu "$PUID:$PGID" env \
   MOLTBOT_STATE_DIR="$MOLTBOT_STATE" \
   MOLTBOT_TOKEN="$FINAL_TOKEN" \
   PATH="/usr/local/bin:/usr/bin:/bin" \
-  sh -lc "$CMD" &
+  sh -lc "umask 0002 && $CMD" &
 APP_PID=$!
 
 sleep 3
