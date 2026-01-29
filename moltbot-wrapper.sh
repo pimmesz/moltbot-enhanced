@@ -1,59 +1,45 @@
 #!/bin/bash
 # Wrapper for moltbot binary
-# Ensures proper environment and graceful shutdown
-# IMPORTANT:
-# - Always force HOME=/config so sessions persist
-# - Never write to /root
-# - Wrapper does NOT gosu (start.sh is the only place that does)
-
-set -e
+# Forces state/config to /config (persistent) even when "docker exec" runs as root
+set -euo pipefail
 
 cleanup() {
-    echo "[moltbot-wrapper] Received shutdown signal, stopping gracefully..."
-    if [ -n "${MOLTBOT_PID:-}" ]; then
-        kill -TERM "$MOLTBOT_PID" 2>/dev/null || true
-        wait "$MOLTBOT_PID" 2>/dev/null || true
-    fi
-    echo "[moltbot-wrapper] Shutdown complete"
-    exit 0
+  echo "[moltbot-wrapper] Received shutdown signal, stopping gracefully..."
+  if [ -n "${MOLTBOT_PID:-}" ]; then
+    kill -TERM "$MOLTBOT_PID" 2>/dev/null || true
+    wait "$MOLTBOT_PID" 2>/dev/null || true
+  fi
+  echo "[moltbot-wrapper] Shutdown complete"
+  exit 0
 }
-
 trap cleanup SIGTERM SIGINT SIGHUP
 
-# Optional env files
-[ -f /etc/environment ] && source /etc/environment
-[ -f /config/.env ] && source /config/.env
+# Source env if available
+[ -f /etc/environment ] && . /etc/environment || true
+[ -f /config/.env ] && . /config/.env || true
 
-# ------------------------------------------------------------------
-# FORCE persistent state under /config (critical)
-# ------------------------------------------------------------------
+# ALWAYS pin Moltbot state to /config (so "docker exec" doesn't use /root)
 export HOME=/config
 export XDG_CONFIG_HOME=/config
 export XDG_DATA_HOME=/config
 export XDG_CACHE_HOME=/config/.cache
 
-# Moltbot state (must match start.sh)
-export MOLTBOT_STATE_DIR="${MOLTBOT_STATE_DIR:-/config/.clawdbot}"
-TOKEN_FILE="$MOLTBOT_STATE_DIR/.moltbot_token"
+# If Moltbot respects a state dir env var, set it too (harmless if ignored)
+export MOLTBOT_STATE_DIR=/config/.clawdbot
 
-# Auto-load gateway token if not already set
-if [ -z "${MOLTBOT_TOKEN:-}" ] && [ -f "$TOKEN_FILE" ]; then
-    export MOLTBOT_TOKEN="$(cat "$TOKEN_FILE")"
-fi
-
-# Gateway defaults
+# Defaults
 export MOLTBOT_PORT="${MOLTBOT_PORT:-18789}"
 export MOLTBOT_BIND="${MOLTBOT_BIND:-lan}"
 export NODE_ENV="${NODE_ENV:-production}"
 
-# Browser / sandbox flags (safe defaults)
+# Browser knobs (only if you actually need browser automation)
 export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 export BROWSER_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
 
-# Ensure state dir exists (no-op if already created by start.sh)
-mkdir -p "$MOLTBOT_STATE_DIR"
+# Ensure persistent dirs exist (matches your start.sh)
+mkdir -p /config/.clawdbot /config/workspace /config/.cache
 
-# Run the real moltbot binary
+# Run real moltbot
 /usr/local/bin/moltbot-real "$@" &
 MOLTBOT_PID=$!
 
