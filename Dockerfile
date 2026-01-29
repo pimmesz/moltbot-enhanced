@@ -32,10 +32,10 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # --------------------------------------------------------------------------
-# Install Moltbot from npm
+# Install Moltbot from npm (still published as 'clawdbot' during rename transition)
 # --------------------------------------------------------------------------
-RUN npm install -g moltbot@latest && \
-    moltbot --version && \
+RUN npm install -g clawdbot@latest && \
+    clawdbot --version && \
     npm cache clean --force && \
     rm -rf /root/.npm
 
@@ -62,8 +62,9 @@ RUN chmod +x \
 # --------------------------------------------------------------------------
 # Enforce wrapper as the ONLY Moltbot entrypoint
 # --------------------------------------------------------------------------
-RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
+RUN mv /usr/local/bin/clawdbot /usr/local/bin/moltbot-real && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot && \
+    ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/clawdbot && \
     chmod 750 /usr/local/bin/moltbot-real
 
 # --------------------------------------------------------------------------
