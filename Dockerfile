@@ -45,9 +45,9 @@ RUN apt-get update && \
 
 # Install Python packages for automation & data processing
 RUN pip3 install --no-cache-dir \
-    requests beautifulsoup4 selenium \
+    requests beautifulsoup4 \
     pandas numpy pillow pyyaml python-dotenv \
-    sqlalchemy psycopg2-binary redis \
+    sqlalchemy redis \
     paho-mqtt zeroconf pytz python-dateutil cryptography && \
     # Clean up build dependencies to save space
     apt-get remove -y build-essential && \
