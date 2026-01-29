@@ -28,13 +28,18 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
 # Build Moltbot + pack the actual moltbot package (not the monorepo root)
 RUN pnpm build && \
     pnpm ui:build && \
+    echo "=== Checking what was built ===" && \
+    find /build -name "package.json" -type f | grep -E "packages/moltbot" | head -5 && \
+    echo "=== Checking moltbot package directory ===" && \
+    ls -la /build/packages/moltbot/ 2>/dev/null || ls -la /build/apps/moltbot/ 2>/dev/null || echo "Cannot find moltbot package" && \
+    echo "=== Packing moltbot ===" && \
     mkdir -p /build/pkg && \
     pnpm -r --filter "moltbot" pack --pack-destination /build/pkg && \
     ls -la /build/pkg && \
     PKG="$(ls -1 /build/pkg/*.tgz | head -n 1)" && \
     cp "$PKG" /build/moltbot.tgz && \
-    echo "== packed contents (bin sanity) ==" && \
-    tar -tf /build/moltbot.tgz | sed -n '1,120p'
+    echo "=== Packed contents (first 200 lines) ===" && \
+    tar -tf /build/moltbot.tgz | head -200
 
 
 # ============================================================================
@@ -77,22 +82,10 @@ RUN apt-get update && \
 COPY --from=builder /build/moltbot.tgz /tmp/moltbot.tgz
 
 RUN npm install -g /tmp/moltbot.tgz && \
-    echo "=== Checking moltbot package structure ===" && \
-    ls -la /usr/local/lib/node_modules/moltbot/ && \
-    echo "=== Checking moltbot bin directory ===" && \
-    ls -la /usr/local/lib/node_modules/moltbot/bin/ 2>/dev/null || echo "No bin directory" && \
-    echo "=== Checking moltbot dist directory ===" && \
-    ls -la /usr/local/lib/node_modules/moltbot/dist/ 2>/dev/null || echo "No dist directory" && \
-    echo "=== Creating manual symlink ===" && \
-    if [ -f /usr/local/lib/node_modules/moltbot/bin/moltbot.js ]; then \
-      ln -sf /usr/local/lib/node_modules/moltbot/bin/moltbot.js /usr/local/bin/moltbot; \
-    elif [ -f /usr/local/lib/node_modules/moltbot/dist/cli.js ]; then \
-      ln -sf /usr/local/lib/node_modules/moltbot/dist/cli.js /usr/local/bin/moltbot; \
-    else \
-      echo "ERROR: Cannot find moltbot binary" && exit 1; \
-    fi && \
-    chmod +x /usr/local/bin/moltbot && \
-    moltbot --version && \
+    echo "=== Checking installed package.json ===" && \
+    cat /usr/local/lib/node_modules/moltbot/package.json && \
+    echo "=== Full directory tree ===" && \
+    find /usr/local/lib/node_modules/moltbot -type f | head -50 && \
     rm -f /tmp/moltbot.tgz && \
     npm cache clean --force && \
     rm -rf /root/.npm
