@@ -113,9 +113,13 @@ RUN chmod +x \
 # --------------------------------------------------------------------------
 # Enforce wrapper as the ONLY Moltbot entrypoint
 # --------------------------------------------------------------------------
-RUN mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real
-RUN ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
-RUN chmod 750 /usr/local/bin/moltbot-real
+RUN if [ -f /usr/local/bin/moltbot ]; then \
+      mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
+      chmod 750 /usr/local/bin/moltbot-real; \
+    else \
+      echo "WARNING: /usr/local/bin/moltbot not found, skipping wrapper setup"; \
+    fi && \
+    ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot
 
 # --------------------------------------------------------------------------
 # Metadata
