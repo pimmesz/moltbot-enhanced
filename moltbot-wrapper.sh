@@ -21,8 +21,6 @@ export XDG_CONFIG_HOME=/config
 export XDG_DATA_HOME=/config
 export XDG_CACHE_HOME=/config/.cache
 export XDG_RUNTIME_DIR=/tmp/moltbot
-# Set both for compatibility (package is still 'clawdbot' but rebranding to 'moltbot')
-export CLAWDBOT_STATE_DIR=/config/.clawdbot
 export MOLTBOT_STATE_DIR=/config/.clawdbot
 export NODE_ENV="${NODE_ENV:-production}"
 export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
@@ -39,7 +37,6 @@ exec env \
   XDG_DATA_HOME=/config \
   XDG_CACHE_HOME=/config/.cache \
   XDG_RUNTIME_DIR=/tmp/moltbot \
-  CLAWDBOT_STATE_DIR=/config/.clawdbot \
   MOLTBOT_STATE_DIR=/config/.clawdbot \
   PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}" \
   /usr/local/bin/moltbot-real "$@"
