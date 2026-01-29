@@ -180,7 +180,26 @@ else
       mv "$CONFIG_PATH" "$bad"
       write_default_config
     else
-      log "Existing moltbot.json detected – leaving untouched"
+      # Ensure gateway.mode is set (required for gateway command)
+      if ! python3 -c "import json; c=json.load(open('$CONFIG_PATH')); assert c.get('gateway',{}).get('mode')" 2>/dev/null; then
+        log "Patching moltbot.json: adding gateway.mode=local"
+        python3 -c "
+import json
+with open('$CONFIG_PATH', 'r') as f:
+    config = json.load(f)
+if 'gateway' not in config:
+    config['gateway'] = {}
+config['gateway']['mode'] = 'local'
+config['gateway'].setdefault('port', ${MOLTBOT_PORT:-18789})
+config['gateway'].setdefault('bind', '${MOLTBOT_BIND:-lan}')
+with open('$CONFIG_PATH', 'w') as f:
+    json.dump(config, f, indent=2)
+"
+        chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
+        chmod 600 "$CONFIG_PATH" 2>/dev/null || true
+      else
+        log "Existing moltbot.json detected – leaving untouched"
+      fi
     fi
   else
     log "WARNING: python3 not found; skipping moltbot.json validation"
