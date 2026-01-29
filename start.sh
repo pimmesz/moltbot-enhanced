@@ -169,7 +169,7 @@ write_default_config() {
       "token": "$FINAL_TOKEN"
     },
     "controlUi": {
-      "allowInsecureAuth": true
+      "allowInsecureAuth": false
     }
   },
   "agents": {
