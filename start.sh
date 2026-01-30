@@ -82,6 +82,9 @@ export XDG_CACHE_HOME=/config/.cache
 export XDG_RUNTIME_DIR=/tmp/moltbot
 export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 
+# Ensure browser automation uses the container-safe Chromium wrapper
+export PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-wrapper
+
 # Use .clawdbot as state dir (moltbot's default, for backward compatibility)
 MOLTBOT_STATE="/config/.clawdbot"
 MOLTBOT_WORKSPACE="/config/workspace"
