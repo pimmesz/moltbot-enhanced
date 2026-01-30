@@ -29,6 +29,18 @@ RUN apt-get update && \
       passwd \
       procps \
       chromium \
+      # Enhanced font support for better web rendering
+      fonts-liberation \
+      fonts-noto \
+      fonts-noto-cjk \
+      fonts-noto-color-emoji \
+      # Chromium runtime dependencies for headless mode
+      libnss3 \
+      libatk-bridge2.0-0 \
+      libdrm2 \
+      libxcomposite1 \
+      libxrandr2 \
+      libasound2 \
       python3 \
       python3-pip \
       openssl \
@@ -36,8 +48,8 @@ RUN apt-get update && \
       jq \
       sqlite3 \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /config /tmp/moltbot \
-    && chmod 1777 /tmp /tmp/moltbot
+    && mkdir -p /config /tmp/moltbot /dev/shm \
+    && chmod 1777 /tmp /tmp/moltbot /dev/shm
 
 # --------------------------------------------------------------------------
 # Install Moltbot from npm (using beta until @latest tag is updated)
