@@ -158,6 +158,11 @@ write_default_config() {
       "allowInsecureAuth": true
     }
   },
+  "browser": {
+    "enabled": true,
+    "headless": true,
+    "noSandbox": true
+  },
   "agents": {
     "defaults": {
       "workspace": "/config/workspace"
