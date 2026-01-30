@@ -16,6 +16,7 @@ umask 0002
 log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
 APP_PID=""
+XVFB_PID=""
 
 cleanup() {
   log "Received shutdown signal"
@@ -23,6 +24,10 @@ cleanup() {
     log "Stopping Moltbot..."
     kill -TERM "$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
+  fi
+  if [ -n "${XVFB_PID:-}" ] && kill -0 "$XVFB_PID" 2>/dev/null; then
+    log "Stopping Xvfb..."
+    kill "$XVFB_PID" 2>/dev/null || true
   fi
   log "Shutdown complete"
   exit 0
@@ -232,6 +237,21 @@ if [ -f "$CONFIG_PATH" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Start Xvfb (virtual X display for browser automation)
+# ---------------------------------------------------------------------------
+
+log "Starting Xvfb virtual display server..."
+Xvfb :99 -screen 0 1024x768x24 > /tmp/xvfb.log 2>&1 &
+XVFB_PID=$!
+sleep 2
+
+if kill -0 "$XVFB_PID" 2>/dev/null; then
+  log "✅ Xvfb started (PID: $XVFB_PID, DISPLAY=:99)"
+else
+  log "⚠️  Xvfb failed to start, browser automation may not work"
+fi
+
+# ---------------------------------------------------------------------------
 # Launch Moltbot (via wrapper so HOME is ALWAYS /config)
 # ---------------------------------------------------------------------------
 
@@ -249,6 +269,7 @@ gosu "$PUID:$PGID" env \
   XDG_DATA_HOME=/config \
   XDG_CACHE_HOME=/config/.cache \
   XDG_RUNTIME_DIR=/tmp/moltbot \
+  DISPLAY=:99 \
   MOLTBOT_STATE_DIR="$MOLTBOT_STATE" \
   MOLTBOT_TOKEN="$FINAL_TOKEN" \
   PATH="/usr/local/bin:/usr/bin:/bin" \
