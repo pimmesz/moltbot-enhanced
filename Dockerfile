@@ -67,7 +67,10 @@ RUN apt-get update && \
       procps \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /config /tmp/moltbot /dev/shm /tmp/chromium-crash /tmp/chromium-user-data \
-    && chmod 1777 /tmp /tmp/moltbot /dev/shm /tmp/chromium-crash /tmp/chromium-user-data
+    && chmod 1777 /tmp /tmp/moltbot /dev/shm /tmp/chromium-crash /tmp/chromium-user-data \
+    # Install Claude CLI for direct subscription access
+    && curl -fsSL https://github.com/anthropics/claude-cli/releases/latest/download/claude-linux-amd64 -o /usr/local/bin/claude \
+    && chmod +x /usr/local/bin/claude
 
 # --------------------------------------------------------------------------
 # Install Moltbot from npm (using beta until @latest tag is updated)
