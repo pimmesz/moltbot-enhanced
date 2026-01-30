@@ -14,7 +14,10 @@ ENV PUID=99 \
     MOLTBOT_BIND=lan \
     # Skip Chromium download during npm install (we install via apt)
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-wrapper \
+    # Container-safe Chromium environment
+    CHROME_DEVEL_SANDBOX=0 \
+    DISPLAY=:99
 
 # --------------------------------------------------------------------------
 # Runtime dependencies (single layer)
@@ -65,13 +68,17 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY start.sh /start.sh
 COPY moltbot-wrapper.sh /usr/local/bin/moltbot-wrapper
 COPY healthcheck.sh /healthcheck.sh
+COPY chromium-wrapper.sh /usr/local/bin/chromium-wrapper
 
-RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper && \
+RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper /usr/local/bin/chromium-wrapper && \
     # Enforce wrapper as the ONLY Moltbot entrypoint
     mv /usr/local/bin/moltbot /usr/local/bin/moltbot-real && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/moltbot && \
     ln -sf /usr/local/bin/moltbot-wrapper /usr/local/bin/clawdbot && \
-    chmod 755 /usr/local/bin/moltbot-real
+    chmod 755 /usr/local/bin/moltbot-real && \
+    # Create Chromium directories with proper permissions
+    mkdir -p /tmp/chromium-crash /tmp/chromium-user-data && \
+    chmod 1777 /tmp/chromium-crash /tmp/chromium-user-data
 
 # --------------------------------------------------------------------------
 # Metadata
