@@ -14,10 +14,12 @@ ENV PUID=99 \
     MOLTBOT_BIND=lan \
     # Skip Chromium download during npm install (we install via apt)
     PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-wrapper \
     # Container-safe Chromium environment
     CHROME_DEVEL_SANDBOX=0 \
     DISPLAY=:99
+
+# Set Puppeteer executable path after chromium-wrapper is installed
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chromium-wrapper
 
 # --------------------------------------------------------------------------
 # Runtime dependencies (single layer)
