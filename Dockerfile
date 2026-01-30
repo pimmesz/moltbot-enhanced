@@ -35,14 +35,14 @@ RUN apt-get update && \
       ca-certificates \
       passwd \
       procps \
-      # Browser: Use chromium-browser instead of chromium for better compatibility
-      chromium-browser \
+      # Browser: Standard chromium package with enhanced dependencies
+      chromium \
       # Enhanced font support for better web rendering
       fonts-liberation \
       fonts-noto \
       fonts-noto-cjk \
       fonts-noto-color-emoji \
-      # Comprehensive Chromium runtime dependencies
+      # Comprehensive Chromium runtime dependencies (verified for Debian 12)
       libnss3 \
       libatk-bridge2.0-0 \
       libdrm2 \
@@ -50,15 +50,11 @@ RUN apt-get update && \
       libxrandr2 \
       libasound2 \
       libxtst6 \
-      libxss1 \
       libgtk-3-0 \
       libxkbcommon0 \
       libatspi2.0-0 \
       libx11-xcb1 \
       libxcb-dri3-0 \
-      libappindicator3-1 \
-      libgconf-2-4 \
-      libxss1 \
       # System utilities
       python3 \
       python3-pip \

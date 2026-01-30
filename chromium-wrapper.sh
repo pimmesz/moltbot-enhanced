@@ -6,14 +6,10 @@
 mkdir -p /tmp/chromium-crash /tmp/chromium-user-data /tmp/chromium-cache /tmp/.X11-unix
 chmod 1777 /tmp/chromium-crash /tmp/chromium-user-data /tmp/chromium-cache 2>/dev/null || true
 
-# Try chromium-browser first, fallback to chromium
-CHROME_EXEC=""
-if command -v chromium-browser >/dev/null 2>&1; then
-    CHROME_EXEC="chromium-browser"
-elif command -v chromium >/dev/null 2>&1; then
-    CHROME_EXEC="chromium"
-else
-    echo "❌ No Chromium executable found" >&2
+# Use standard chromium executable
+CHROME_EXEC="/usr/bin/chromium"
+if [ ! -x "$CHROME_EXEC" ]; then
+    echo "❌ Chromium executable not found at $CHROME_EXEC" >&2
     exit 1
 fi
 
