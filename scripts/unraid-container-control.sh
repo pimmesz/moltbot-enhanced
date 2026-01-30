@@ -4,8 +4,14 @@
 
 set -euo pipefail
 
-UNRAID_HOST="192.168.2.96"
-API_KEY="2c84f3e3daa457bcdb01f52e6ab19de39776a89d07118e432d354761252d144a"
+UNRAID_HOST="${UNRAID_HOST:-192.168.2.96}"
+API_KEY="${UNRAID_API_KEY:-}"
+
+if [ -z "$API_KEY" ]; then
+    echo "❌ ERROR: UNRAID_API_KEY environment variable not set"
+    echo "Set it with: export UNRAID_API_KEY=your_api_key_here"
+    exit 1
+fi
 
 usage() {
     echo "Usage: $0 <action> <container-name>"

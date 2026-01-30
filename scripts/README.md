@@ -30,7 +30,11 @@ Provides programmatic control of Docker containers via Unraid's GraphQL API.
 - ✅ Error handling and user-friendly output
 - ✅ Container discovery and status reporting
 
-**API Key:** Pre-configured for the Unraid server. Update the `API_KEY` variable if needed.
+**API Key:** Set via environment variable:
+```bash
+export UNRAID_API_KEY=your_api_key_here
+export UNRAID_HOST=192.168.2.96  # optional, defaults to 192.168.2.96
+```
 
 ## Notes
 
