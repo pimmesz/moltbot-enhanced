@@ -4,12 +4,19 @@
 
 # Create all necessary directories with full permissions
 mkdir -p /tmp/chromium-crash /tmp/chromium-user-data /tmp/chromium-cache /tmp/.X11-unix
-chmod 1777 /tmp/chromium-crash /tmp/chromium-user-data /tmp/chromium-cache /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/chromium-crash /tmp/chromium-user-data /tmp/chromium-cache 2>/dev/null || true
+
+# Use standard chromium executable
+CHROME_EXEC="/usr/bin/chromium"
+if [ ! -x "$CHROME_EXEC" ]; then
+    echo "❌ Chromium executable not found at $CHROME_EXEC" >&2
+    exit 1
+fi
 
 # Export container-friendly Chromium environment
 export CHROME_DEVEL_SANDBOX=0
 export CHROMIUM_FLAGS="
-  --headless
+  --headless=new
   --no-sandbox
   --disable-dev-shm-usage
   --disable-gpu
@@ -49,10 +56,16 @@ export CHROMIUM_FLAGS="
   --ignore-certificate-errors
   --ignore-ssl-errors
   --ignore-certificate-errors-spki-list
-  --disable-blink-features=AutomationControlled
-  --enable-logging=stderr
-  --log-level=0
+  --disable-field-trial-config
+  --disable-background-media-suspend
+  --force-color-profile=srgb
+  --autoplay-policy=user-gesture-required
+  --disable-audio-output
+  --mute-audio
 "
 
+# Debug information
+echo "🚀 Starting $CHROME_EXEC with container-safe flags..." >&2
+
 # Execute chromium with comprehensive container-safe flags
-exec /usr/bin/chromium $CHROMIUM_FLAGS "$@" 2>/dev/null
+exec "$CHROME_EXEC" $CHROMIUM_FLAGS "$@"
