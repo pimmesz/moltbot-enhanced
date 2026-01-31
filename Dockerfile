@@ -78,6 +78,15 @@ RUN --mount=type=cache,target=/root/.npm \
     moltbot --version
 
 # --------------------------------------------------------------------------
+# Install Playwright for browser automation
+# --------------------------------------------------------------------------
+RUN --mount=type=cache,target=/root/.npm \
+    npm install -g playwright && \
+    # Install browser dependencies (though Chromium is already installed via apt)
+    # This ensures Playwright can find and use the system Chromium
+    npx playwright install-deps chromium || true
+
+# --------------------------------------------------------------------------
 # Copy and setup entrypoint scripts
 # --------------------------------------------------------------------------
 COPY start.sh /start.sh
