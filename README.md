@@ -3,7 +3,9 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/pimmesz/moltbot-enhanced)](https://hub.docker.com/r/pimmesz/moltbot-enhanced)
 [![GitHub](https://img.shields.io/github/license/pimmesz/moltbot-enhanced)](https://github.com/pimmesz/moltbot-enhanced)
 
-Moltbot AI agent gateway for Unraid servers. Connect AI to messaging platforms like WhatsApp, Telegram, Discord, Slack, and more.
+Moltbot AI agent gateway with enhanced browser automation and smart home capabilities. Connect AI to messaging platforms like WhatsApp, Telegram, Discord, Slack, and more.
+
+**Perfect for:** Home servers (Unraid, Docker, etc.), smart home automation, media control, and AI-powered workflows.
 
 ## Features
 
@@ -145,6 +147,30 @@ After starting the container, check the logs for the tokenized URL:
 ```bash
 docker logs moltbot
 ```
+
+
+## Browser Automation
+
+Browser automation is **enabled by default** for web-based control (Sonos, smart home dashboards, etc.).
+
+The container includes:
+- ✅ Chromium browser (headless mode)
+- ✅ Playwright automation (bundled with Moltbot)
+- ✅ Pre-configured for Docker (no-sandbox mode)
+
+**Optional:** Customize browser settings in `/config/.clawdbot/moltbot.json`:
+
+```json
+{
+  "browser": {
+    "enabled": true,
+    "headless": true,
+    "noSandbox": true
+  }
+}
+```
+
+This configuration is automatically applied on first run (see `.config-template.json`).
 
 Look for a line like:
 
