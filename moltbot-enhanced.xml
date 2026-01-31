@@ -1,26 +1,26 @@
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>moltbot-unraid</Name>
-  <Repository>pimmesz/moltbot-unraid:latest</Repository>
-  <Registry>https://hub.docker.com/r/pimmesz/moltbot-unraid</Registry>
+  <Name>moltbot-enhanced</Name>
+  <Repository>pimmesz/moltbot-enhanced:latest</Repository>
+  <Registry>https://hub.docker.com/r/pimmesz/moltbot-enhanced</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/pimmesz/moltbot-unraid/issues</Support>
+  <Support>https://github.com/pimmesz/moltbot-enhanced/issues</Support>
   <Project>https://github.com/moltbot/moltbot</Project>
   <Overview>Moltbot AI agent gateway for Unraid. Connect AI to messaging platforms like WhatsApp, Telegram, Discord, Slack, and more.&#xD;
 &#xD;
 After installation:&#xD;
 1. Start the container&#xD;
-2. Run: docker exec -it moltbot-unraid moltbot onboard&#xD;
+2. Run: docker exec -it moltbot-enhanced moltbot onboard&#xD;
 3. Follow the interactive setup to configure AI providers and channels&#xD;
 4. Access the Web UI from the logs (tokenized URL)&#xD;
   </Overview>
   <Category>Tools: Status:Stable</Category>
   <WebUI>http://[IP]:[PORT:18789]</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/pimmesz/moltbot-unraid/main/moltbot-unraid.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/pimmesz/moltbot-unraid/main/icon.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/pimmesz/moltbot-enhanced/main/moltbot-enhanced.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/pimmesz/moltbot-enhanced/main/icon.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
