@@ -1,4 +1,4 @@
-# Moltbot Unraid
+# Moltbot Enhanced
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/pimmesz/moltbot-enhanced)](https://hub.docker.com/r/pimmesz/moltbot-enhanced)
 [![GitHub](https://img.shields.io/github/license/pimmesz/moltbot-enhanced)](https://github.com/pimmesz/moltbot-enhanced)
