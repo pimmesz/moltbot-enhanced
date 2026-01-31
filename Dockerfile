@@ -1,11 +1,11 @@
 # ============================================================================
-# Moltbot Unraid - Single-stage build (installs from npm)
+# Moltbot Enhanced - Single-stage build (installs from npm)
 # ============================================================================
 
 FROM node:24-slim
 
 # --------------------------------------------------------------------------
-# Unraid defaults & environment
+# Default environment (Unraid-compatible PUID/PGID defaults)
 # --------------------------------------------------------------------------
 ENV PUID=99 \
     PGID=100 \
@@ -108,8 +108,8 @@ RUN chmod +x /start.sh /healthcheck.sh /usr/local/bin/moltbot-wrapper /usr/local
 # Metadata
 # --------------------------------------------------------------------------
 LABEL maintainer="pimmesz" \
-      org.opencontainers.image.title="Moltbot Unraid" \
-      org.opencontainers.image.description="Moltbot AI agent gateway for Unraid" \
+      org.opencontainers.image.title="Moltbot Enhanced" \
+      org.opencontainers.image.description="Moltbot AI agent gateway with browser automation and smart home tools" \
       org.opencontainers.image.authors="pimmesz" \
       org.opencontainers.image.source="https://github.com/pimmesz/moltbot-enhanced"
 
