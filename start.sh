@@ -180,7 +180,8 @@ config = {
   'browser': {
     'enabled': True,
     'headless': True,
-    'noSandbox': True
+    'noSandbox': True,
+    'lazyStart': True
   },
   'agents': {
     'defaults': {
@@ -347,6 +348,10 @@ fi
 CMD="/usr/local/bin/moltbot gateway"
 log "Executing: $CMD"
 
+# Enable lazy browser initialization (don't block startup)
+export MOLTBOT_BROWSER_LAZY=true
+log "Browser will initialize lazily (won't block startup)"
+
 gosu "$PUID:$PGID" env \
   HOME=/config \
   XDG_CONFIG_HOME=/config \
@@ -356,6 +361,7 @@ gosu "$PUID:$PGID" env \
   DISPLAY=:99 \
   MOLTBOT_STATE_DIR="$MOLTBOT_STATE" \
   MOLTBOT_TOKEN="$FINAL_TOKEN" \
+  MOLTBOT_BROWSER_LAZY=true \
   PATH="/usr/local/bin:/usr/bin:/bin" \
   ${ANTHROPIC_API_KEY:+ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"} \
   ${OPENAI_API_KEY:+OPENAI_API_KEY="$OPENAI_API_KEY"} \
