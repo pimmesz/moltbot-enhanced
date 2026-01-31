@@ -152,32 +152,49 @@ export MOLTBOT_TOKEN="$FINAL_TOKEN"
 # ---------------------------------------------------------------------------
 
 write_default_config() {
-  cat > "$CONFIG_PATH" <<EOF
-{
-  "gateway": {
-    "mode": "local",
-    "port": ${MOLTBOT_PORT:-18789},
-    "bind": "${MOLTBOT_BIND:-lan}",
-    "auth": {
-      "mode": "token",
-      "token": "$FINAL_TOKEN"
+  # Use Python to generate config with proper JSON handling for env block
+  python3 -c "
+import json
+import os
+
+config = {
+  'gateway': {
+    'mode': 'local',
+    'port': ${MOLTBOT_PORT:-18789},
+    'bind': '${MOLTBOT_BIND:-lan}',
+    'auth': {
+      'mode': 'token',
+      'token': '$FINAL_TOKEN'
     },
-    "controlUi": {
-      "allowInsecureAuth": true
+    'controlUi': {
+      'allowInsecureAuth': True
     }
   },
-  "browser": {
-    "enabled": true,
-    "headless": true,
-    "noSandbox": true
+  'browser': {
+    'enabled': True,
+    'headless': True,
+    'noSandbox': True
   },
-  "agents": {
-    "defaults": {
-      "workspace": "/config/workspace"
+  'agents': {
+    'defaults': {
+      'workspace': '/config/workspace'
     }
   }
 }
-EOF
+
+# Add env block with API keys if present
+env_block = {}
+for key in ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY']:
+  value = os.environ.get(key)
+  if value:
+    env_block[key] = value
+
+if env_block:
+  config['env'] = env_block
+
+with open('$CONFIG_PATH', 'w') as f:
+  json.dump(config, f, indent=2)
+"
   chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
   chmod 664 "$CONFIG_PATH" 2>/dev/null || true
 }
