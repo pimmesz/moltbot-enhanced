@@ -220,6 +220,40 @@ with open('$CONFIG_PATH', 'w') as f:
 fi
 
 # ---------------------------------------------------------------------------
+# Inject API keys from environment into moltbot.json if present
+# ---------------------------------------------------------------------------
+
+if [ -f "$CONFIG_PATH" ] && command -v python3 >/dev/null 2>&1; then
+  python3 -c "
+import json
+import os
+
+with open('$CONFIG_PATH', 'r') as f:
+    config = json.load(f)
+
+# Create env block if it doesn't exist
+if 'env' not in config:
+    config['env'] = {}
+
+# Add API keys from environment if set and not already in config
+api_keys = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY']
+added_keys = []
+for key in api_keys:
+    env_value = os.environ.get(key)
+    if env_value and key not in config['env']:
+        config['env'][key] = env_value
+        added_keys.append(key)
+
+# Only write if we added something
+if added_keys:
+    with open('$CONFIG_PATH', 'w') as f:
+        json.dump(config, f, indent=2)
+" 2>/dev/null || true
+  chown "$PUID:$PGID" "$CONFIG_PATH" 2>/dev/null || true
+  chmod 664 "$CONFIG_PATH" 2>/dev/null || true
+fi
+
+# ---------------------------------------------------------------------------
 # XDG config directory symlinks
 # ---------------------------------------------------------------------------
 if [ ! -e "/config/moltbot" ]; then
