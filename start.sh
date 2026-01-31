@@ -25,6 +25,13 @@ cleanup() {
     kill -TERM "$APP_PID" 2>/dev/null || true
     wait "$APP_PID" 2>/dev/null || true
   fi
+  # Kill any remaining browser processes to prevent lock file issues
+  log "Cleaning up browser processes..."
+  pkill -TERM chromium 2>/dev/null || true
+  pkill -TERM chrome 2>/dev/null || true
+  sleep 1
+  pkill -9 chromium 2>/dev/null || true
+  pkill -9 chrome 2>/dev/null || true
   if [ -n "${XVFB_PID:-}" ] && kill -0 "$XVFB_PID" 2>/dev/null; then
     log "Stopping Xvfb..."
     kill "$XVFB_PID" 2>/dev/null || true
@@ -294,6 +301,24 @@ find "$MOLTBOT_STATE" -type f -exec chmod 664 {} \; 2>/dev/null || true
 if [ -f "$CONFIG_PATH" ]; then
   ls -la "$CONFIG_PATH" >&2
 fi
+
+# ---------------------------------------------------------------------------
+# Clean up browser lock files (prevents Chromium startup failures)
+# ---------------------------------------------------------------------------
+
+log "Cleaning up browser lock files..."
+
+# Remove Chromium SingletonLock files that prevent browser startup
+# Check both the state directory and temp directories
+find "$MOLTBOT_STATE" -type f -name "SingletonLock" -delete 2>/dev/null || true
+find /tmp/chromium-user-data -type f -name "SingletonLock" -delete 2>/dev/null || true
+find /tmp -maxdepth 3 -type f -name "SingletonLock" -delete 2>/dev/null || true
+
+# Kill any orphaned chromium processes from previous runs
+pkill -9 chromium 2>/dev/null || true
+pkill -9 chrome 2>/dev/null || true
+
+log "Browser lock cleanup complete"
 
 # ---------------------------------------------------------------------------
 # Start Xvfb (virtual X display for browser automation)
